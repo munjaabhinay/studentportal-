@@ -99,12 +99,29 @@ INSERT INTO public.portal_bootstrap_state (id, completed_at)
 VALUES (TRUE, NULL)
 ON CONFLICT (id) DO NOTHING;
 
--- This is the only migration reference to auth.users: remove the legacy trigger.
+-- Reference auth.users only to detach legacy profile dependencies.
 -- No new tables, foreign keys, functions, or triggers depend on Supabase Auth.
 DO $$
+DECLARE
+  legacy_fk RECORD;
 BEGIN
   IF to_regclass('auth.users') IS NOT NULL THEN
     EXECUTE 'DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users';
+
+    IF to_regclass('public.profiles') IS NOT NULL THEN
+      FOR legacy_fk IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'public.profiles'::regclass
+          AND contype = 'f'
+          AND confrelid = 'auth.users'::regclass
+      LOOP
+        EXECUTE format(
+          'ALTER TABLE public.profiles DROP CONSTRAINT %I',
+          legacy_fk.conname
+        );
+      END LOOP;
+    END IF;
   END IF;
 END
 $$;
@@ -118,6 +135,8 @@ BEGIN
   END IF;
 END
 $$;
+ALTER ROLE portal_api
+  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON public.users, public.courses, public.portal_sessions,

@@ -6,7 +6,7 @@ React 19 and Vite frontend with an Express API and Supabase-hosted PostgreSQL da
 
 - `src/`: React pages, role-aware routes, and same-origin `/api` requests.
 - `server/`: Express API, PostgreSQL connection pool, database-backed sessions and rate limits, password hashing, authorization, and the one-time admin bootstrap utility.
-- `api/[...path].js`: Vercel Node function entry point for the Express API.
+- `api/index.js`: shared Vercel Node function entry point for the Express API.
 - `supabase/migrations/20261125180000_custom_database_auth.sql`: incremental migration for custom accounts, activation codes, sessions, rate limits, role grants, and legacy profile import.
 - `database/schema.sql`: base schema for a new database; existing installations must use the incremental migration.
 
@@ -14,7 +14,7 @@ React 19 and Vite frontend with an Express API and Supabase-hosted PostgreSQL da
 
 Requirements: Node.js 20.19+ (or 22.12+) and an existing Supabase PostgreSQL project.
 
-1. Apply `supabase/migrations/20261125180000_custom_database_auth.sql` in the Supabase SQL Editor. It imports profile IDs, names, emails, roles, and timestamps into `public.users` with a null password hash, preserves the existing `profiles` and `courses` rows, and removes the old `on_auth_user_created` trigger. It does not import Supabase Auth password hashes, which are not exportable.
+1. Apply `supabase/migrations/20261125180000_custom_database_auth.sql` in the Supabase SQL Editor. It imports profile IDs, names, emails, roles, and timestamps into `public.users` with a null password hash, preserves the existing `profiles` and `courses` rows, and removes the old `on_auth_user_created` trigger and `profiles` foreign keys to the legacy Auth table. It does not import Supabase Auth password hashes, which are not exportable.
 2. The migration creates a non-login `portal_api` database role with the API's table permissions. Create a dedicated database login in Supabase **Database → Roles** and grant it membership:
 
    ```sql
@@ -64,7 +64,7 @@ All self-service registrations receive the `student` role. Authenticated admins 
 
 ## Vercel deployment
 
-The project is configured as a Vite static site plus Vercel Node functions. `api/[...path].js` serves the Express application under `/api/*`; the existing SPA rewrite serves client-side routes. Keep the project root as the Vercel Root Directory, build command `npm run build`, and output directory `dist`.
+The project is configured as a Vite static site plus a shared Vercel Node function. `vercel.json` rewrites `/api/*` to `api/index.js` and sends other paths to the SPA. Keep the project root as the Vercel Root Directory, build command `npm run build`, and output directory `dist`.
 
 Set these **server-side environment variables** for every Vercel environment that should run the app (Production and Preview):
 

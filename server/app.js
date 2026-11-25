@@ -29,6 +29,9 @@ if (!sessionSecret || sessionSecret.length < 32 || /replace|example|placeholder/
 if (!rateLimitSecret || rateLimitSecret.length < 32 || /replace|example|placeholder/i.test(rateLimitSecret)) {
   throw new Error('Set RATE_LIMIT_SECRET or use SESSION_SECRET as a private random value of at least 32 characters.')
 }
+if (isProduction && process.env.DATABASE_SSL !== 'true') {
+  throw new Error('DATABASE_SSL=true is required in production.')
+}
 
 const configuredOrigins = process.env.APP_ORIGINS
   ?.split(',')
@@ -37,6 +40,9 @@ const configuredOrigins = process.env.APP_ORIGINS
 
 if (isProduction && (!configuredOrigins || configuredOrigins.length === 0)) {
   throw new Error('Set APP_ORIGINS to the exact production frontend origin(s).')
+}
+if (isProduction && configuredOrigins.some((origin) => new URL(origin).protocol !== 'https:')) {
+  throw new Error('Every production APP_ORIGINS value must use HTTPS.')
 }
 
 const allowedOrigins = new Set(
@@ -149,6 +155,12 @@ export function createPortalApp({ pool = defaultPool } = {}) {
   app.use(express.json({ limit: '16kb' }))
   app.use('/api', (_req, res, next) => {
     res.set('Cache-Control', 'no-store')
+    next()
+  })
+  app.use('/api', (req, _res, next) => {
+    if (isProduction && !req.secure) {
+      return next(authError('https_required', 'HTTPS is required.', 426))
+    }
     next()
   })
   app.use('/api', (req, _res, next) => {
@@ -330,7 +342,7 @@ export function createPortalApp({ pool = defaultPool } = {}) {
     })
   )
 
-  api.get('/courses', asyncHandler(async (_req, res) => {
+  api.get('/courses', ensureUser, asyncHandler(async (_req, res) => {
     const { rows } = await pool.query(
       `SELECT id, course_name, trainer_name, duration, description, created_at, updated_at
        FROM public.courses ORDER BY created_at DESC`
@@ -338,7 +350,7 @@ export function createPortalApp({ pool = defaultPool } = {}) {
     res.json({ courses: rows })
   }))
 
-  api.get('/courses/:id', asyncHandler(async (req, res) => {
+  api.get('/courses/:id', ensureUser, asyncHandler(async (req, res) => {
     if (!isUuid(req.params.id)) throw authError('invalid_course_id', 'Course not found.', 404)
     const { rows } = await pool.query(
       `SELECT id, course_name, trainer_name, duration, description, created_at, updated_at

@@ -47,6 +47,12 @@ export function databaseRateLimit(pool, { scope, max, windowSeconds, includeEmai
         }
       }
 
+      if (Math.random() < 0.01) {
+        await pool.query(
+          "DELETE FROM public.portal_rate_limits WHERE window_started_at < NOW() - INTERVAL '2 days'"
+        )
+      }
+
       next()
     } catch (error) {
       next(error)
