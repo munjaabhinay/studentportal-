@@ -154,6 +154,30 @@ npm run preview
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 4. Deploy
+
+### ⚠️ Fix for "Permission Denied" Build Error
+
+If Vercel shows `Permission denied` on the `vite` binary during build, two fixes are already applied in this project:
+
+**package.json** — Build script uses `npx`:
+```json
+"build": "npx vite build"
+```
+
+**vercel.json** — Vercel build configuration:
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+The `rewrites` rule ensures that refreshing on any route (e.g., `/courses/add`) serves `index.html` instead of returning 404, which is required for React Router SPA applications.
+
 5. Verify production URL connects to Supabase
 
 ## 📱 Screenshots
