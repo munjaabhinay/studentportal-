@@ -14,9 +14,10 @@
 | 8 | Login with valid admin credentials | Session established, redirected to admin dashboard | ⏳ |
 | 9 | Login with invalid credentials | Error message displayed | ⏳ |
 | 10 | Existing unconfirmed account after disabling Confirm email | Login remains blocked until an authorized admin updates the account in Supabase Auth Users | ⏳ |
-| 11 | Click Logout | Session cleared, redirected to login | ⏳ |
-| 12 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
-| 13 | Access /courses/add without login | Redirected to /login | ⏳ |
+| 11 | Signup receives Supabase HTTP 429/email rate limit error | Helpful temporary rate-limit message appears; no automatic retry | ⏳ |
+| 12 | Click Logout | Session cleared, redirected to login | ⏳ |
+| 13 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
+| 14 | Access /courses/add without login | Redirected to /login | ⏳ |
 
 ## Protected Route Tests
 

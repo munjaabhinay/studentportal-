@@ -257,6 +257,8 @@ Email confirmation is intentionally disabled for this application. In Supabase D
 
 Changing the setting does not necessarily confirm accounts that were created earlier. Check **Authentication → Users** and have an authorized Supabase administrator update an existing account's confirmation status there before it can sign in. The app does not send verification emails or bypass authentication.
 
+If signup returns **“email rate limit exceeded”** or HTTP 429, Supabase has temporarily throttled signup/email activity; this cannot be fixed by retrying from the frontend. Wait before trying again and avoid repeated submissions. Confirm that **Confirm email** is off in the Supabase project actually used by the deployment, then check **Authentication → Rate Limits**, the configured email provider/SMTP settings, and the project's Auth logs. Do not raise limits just to mask automated or repeated signup traffic.
+
 ### 6. Run Development Server
 ```bash
 npm run dev

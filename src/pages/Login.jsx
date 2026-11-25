@@ -42,7 +42,9 @@ export default function Login() {
 
         const { data, error: err } = await signUp(email, password, fullName.trim())
         if (err) {
-          setError(err)
+          setError(/rate limit|too many requests|429/i.test(err)
+            ? 'Signup is temporarily rate-limited by Supabase. Wait before trying again and avoid repeated submissions. If this continues, ask the project administrator to check Supabase Authentication rate limits and email provider settings.'
+            : err)
         } else if (data?.session) {
           navigate(data.profile?.role === 'admin' ? '/admin' : '/dashboard', {
             state: { success: 'Account created successfully.' },
