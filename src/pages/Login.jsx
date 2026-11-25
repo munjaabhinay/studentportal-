@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Mail, Lock, AlertCircle, ChevronRight } from 'lucide-react'
 
@@ -9,6 +9,7 @@ export default function Login() {
   const [fullName, setFullName] = useState('')
   const [mode, setMode] = useState('login') // 'login' or 'signup'
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   const { signIn, signUp } = useAuth()
@@ -17,26 +18,34 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
+    setLoading(true)
 
-    if (mode === 'login') {
-      const { data, error: err } = await signIn(email, password)
-      if (err) {
-        setError(err)
-      } else if (data) {
-        navigate('/dashboard')
+    try {
+      if (mode === 'login') {
+        const { data, error: err } = await signIn(email, password)
+        if (err) {
+          setError(err)
+        } else if (data) {
+          navigate('/dashboard')
+        }
+      } else {
+        if (!fullName.trim()) {
+          setError('Full name is required for sign up.')
+          return
+        }
+        const { data, error: err } = await signUp(email, password, fullName.trim())
+        if (err) {
+          setError(err)
+        } else if (data?.session) {
+          navigate('/dashboard')
+        } else if (data?.user) {
+          setSuccess('Account created. Check your email for a confirmation link, then sign in.')
+          setMode('login')
+        }
       }
-    } else {
-      if (!fullName.trim()) {
-        setError('Full name is required for sign up.')
-        return
-      }
-      const { data, error: err } = await signUp(email, password, fullName)
-      if (err) {
-        setError(err)
-      } else if (data) {
-        setError('Account created successfully! Please log in.', 'success')
-        setMode('login')
-      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -58,15 +67,12 @@ export default function Login() {
         </div>
 
         {error && (
-          <div
-            className={`alert ${
-              error.includes('successfully') ? 'alert-success' : 'alert-error'
-            }`}
-          >
+          <div className="alert alert-error">
             <AlertCircle size={18} />
             {error}
           </div>
         )}
+        {success && <div className="alert alert-success">{success}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (

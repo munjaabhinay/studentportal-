@@ -102,5 +102,7 @@
 Before testing, ensure:
 - [ ] Supabase project created at https://supabase.com
 - [ ] Schema.sql executed in Supabase SQL Editor
-- [ ] .env file configured with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+- [ ] Local `.env` configured with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (never use a service-role/secret key in the frontend)
 - [ ] Development server restarted after .env changes
+
+For Vercel, set both variables for **Production** and **Preview**, then trigger a new deployment because Vite embeds them during the build.

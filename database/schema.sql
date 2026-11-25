@@ -80,6 +80,10 @@ CREATE POLICY "Users can update their own profile"
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
+-- Restrict profile updates to editable fields so users cannot change their role.
+REVOKE UPDATE ON TABLE public.profiles FROM authenticated;
+GRANT UPDATE (full_name, email) ON TABLE public.profiles TO authenticated;
+
 -- Users can insert their own profile (on signup)
 CREATE POLICY "Users can insert their own profile"
   ON profiles FOR INSERT
@@ -177,7 +181,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users

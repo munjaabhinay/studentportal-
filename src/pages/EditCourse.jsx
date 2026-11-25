@@ -17,7 +17,7 @@ export default function EditCourse() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = false
+  const [saving, setSaving] = useState(false)
 
   const isAdmin = profile?.role === 'admin'
 
@@ -61,7 +61,7 @@ export default function EditCourse() {
       return
     }
 
-    if (!courseName || !trainerName || !duration) {
+    if (!courseName.trim() || !trainerName.trim() || !duration.trim()) {
       setError('Please fill in all required fields.')
       return
     }

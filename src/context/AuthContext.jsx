@@ -8,7 +8,6 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Fetch the user's profile from the profiles table
   const fetchProfile = async (userId) => {
     try {
       const { data, error } = await supabase
@@ -18,44 +17,52 @@ export function AuthProvider({ children }) {
         .single()
 
       if (error) throw error
-      setProfile(data)
+      return data
     } catch (error) {
       console.error('Error fetching profile:', error.message)
-      setProfile(null)
+      return null
     }
   }
 
-  // Listen for authentication state changes
   useEffect(() => {
-    // If Supabase is not configured, stop loading
     if (!isSupabaseReady()) {
       setLoading(false)
       return
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user.id)
-        } else {
-          setUser(null)
-          setProfile(null)
-        }
-        setLoading(false)
+    let active = true
+    let currentUserId = null
+
+    const syncSession = (session) => {
+      const nextUser = session?.user ?? null
+      if (nextUser?.id === currentUserId) {
+        setUser(nextUser)
+        return
       }
+
+      currentUserId = nextUser?.id ?? null
+      setUser(nextUser)
+      setProfile(null)
+
+      if (!nextUser) {
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      void fetchProfile(nextUser.id).then((nextProfile) => {
+        if (!active || currentUserId !== nextUser.id) return
+        setProfile(nextProfile)
+        setLoading(false)
+      })
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => syncSession(session)
     )
 
-    // Check for existing session on initial load
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (session?.user) {
-        setUser(session.user)
-        fetchProfile(session.user.id)
-      }
-      setLoading(false)
-    })
-
     return () => {
+      active = false
       subscription.unsubscribe()
     }
   }, [])
@@ -78,6 +85,7 @@ export function AuthProvider({ children }) {
       })
 
       if (error) throw error
+      if (data.session?.user) setUser(data.session.user)
       return { data, error: null }
     } catch (error) {
       return { data: null, error: error.message }
@@ -97,6 +105,7 @@ export function AuthProvider({ children }) {
       })
 
       if (error) throw error
+      if (data.user) setUser(data.user)
       return { data, error: null }
     } catch (error) {
       return { data: null, error: error.message }

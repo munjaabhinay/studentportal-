@@ -5,7 +5,6 @@ import { supabase } from '../services/supabase'
 import {
   LayoutDashboard,
   BookOpen,
-  Users,
   Clock,
   ArrowRight,
   Plus,
@@ -16,7 +15,6 @@ export default function Dashboard() {
   const { user, profile } = useAuth()
   const [stats, setStats] = useState({
     totalCourses: 0,
-    totalStudents: 0,
     recentCourses: 0,
   })
   const [recentCourses, setRecentCourses] = useState([])
@@ -50,7 +48,6 @@ export default function Dashboard() {
 
       setStats({
         totalCourses: courseCount || 0,
-        totalStudents: 1, // Currently logged in user
         recentCourses: coursesData?.length || 0,
       })
       setRecentCourses(coursesData || [])
@@ -70,16 +67,10 @@ export default function Dashboard() {
       color: 'text-primary',
     },
     {
-      label: 'Published Courses',
-      value: stats.totalCourses,
+      label: 'Recent Courses',
+      value: stats.recentCourses,
       icon: Clock,
       color: 'text-success',
-    },
-    {
-      label: 'Enrolled Students',
-      value: stats.totalStudents,
-      icon: Users,
-      color: 'text-info',
     },
   ]
 
@@ -105,15 +96,13 @@ export default function Dashboard() {
               Welcome back, {profile?.full_name || user?.email}!
             </p>
           </div>
-          <div className="flex gap-3">
-            <Link
-              to="/courses/add"
-              className="btn btn-primary"
-              disabled={profile?.role !== 'admin'}
-            >
-            <LayoutDashboard size={18} /> Add Course
-            </Link>
-          </div>
+          {profile?.role === 'admin' && (
+            <div className="flex gap-3">
+              <Link to="/courses/add" className="btn btn-primary">
+                <LayoutDashboard size={18} /> Add Course
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
@@ -168,13 +157,11 @@ export default function Dashboard() {
           {recentCourses.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-secondary">No courses available yet.</p>
-              <Link
-                to="/courses/add"
-                className="mt-4 btn btn-primary btn-sm"
-                disabled={profile?.role !== 'admin'}
-              >
-                Add Your First Course
-              </Link>
+              {profile?.role === 'admin' && (
+                <Link to="/courses/add" className="mt-4 btn btn-primary btn-sm">
+                  Add Your First Course
+                </Link>
+              )}
             </div>
           ) : (
             <div className="table-container">
@@ -185,7 +172,9 @@ export default function Dashboard() {
                     <th>Trainer</th>
                     <th>Duration</th>
                     <th>Created</th>
-                    <th className="text-right">Action</th>
+                    {profile?.role === 'admin' && (
+                      <th className="text-right">Action</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -197,14 +186,16 @@ export default function Dashboard() {
                       <td className="text-sm text-muted">
                         {new Date(course.created_at).toLocaleDateString()}
                       </td>
-                      <td className="text-right">
-                        <Link
-                          to={`/courses/${course.id}/edit`}
-                          className="btn btn-outline btn-sm"
-                        >
-                          <ArrowRight size={16} /> View
-                        </Link>
-                      </td>
+                      {profile?.role === 'admin' && (
+                        <td className="text-right">
+                          <Link
+                            to={`/courses/${course.id}/edit`}
+                            className="btn btn-outline btn-sm"
+                          >
+                            <ArrowRight size={16} /> View
+                          </Link>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

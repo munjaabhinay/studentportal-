@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { supabase, isSupabaseReady } from './services/supabase'
+import { isSupabaseReady, supabaseConfigError } from './services/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
 // Pages
@@ -42,15 +41,13 @@ function SupabaseNotConfigured() {
         </div>
         <h2 className="text-xl font-semibold text-primary mb-2">Configuration Missing</h2>
         <p className="text-secondary mb-6">
-          Supabase environment variables are not configured. Please contact your administrator to set up
-          <code className="bg-bg-body px-1 py-0.5 rounded text-danger">VITE_SUPABASE_URL</code> and
-          <code className="bg-bg-body px-1 py-0.5 rounded text-danger">VITE_SUPABASE_ANON_KEY</code>.
+          {supabaseConfigError} Set these values in your deployment environment and create a new deployment.
         </p>
         <div className="text-left text-sm text-muted space-y-2">
           <p><strong>1.</strong> Go to your Supabase project → Settings → API</p>
-          <p><strong>2.</strong> Copy "Project URL" and "anon public" key</p>
-          <p><strong>3.</strong> Add them in Vercel → Settings → Environment Variables</p>
-          <p><strong>4.</strong> Redeploy the project</p>
+          <p><strong>2.</strong> Copy the Project URL and anon public or publishable key</p>
+          <p><strong>3.</strong> Add them in Vercel → Settings → Environment Variables for Production and Preview</p>
+          <p><strong>4.</strong> Start a new deployment so Vite can include the values in the build</p>
         </div>
       </div>
     </div>
@@ -58,34 +55,6 @@ function SupabaseNotConfigured() {
 }
 
 function App() {
-  const [initialized, setInitialized] = useState(false)
-
-  // Listen for auth changes to keep session in sync
-  useEffect(() => {
-    if (!isSupabaseReady()) {
-      setInitialized(true)
-      return
-    }
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email || 'no user')
-    })
-
-    // Check for existing session on load
-    supabase.auth.getSession().then(() => {
-      setInitialized(true)
-    })
-
-    return () => {
-      authListener?.subscription?.unsubscribe()
-    }
-  }, [])
-
-  if (!initialized) {
-    return null
-  }
-
-  // If Supabase is not configured, show configuration message
   if (!isSupabaseReady()) {
     return <SupabaseNotConfigured />
   }

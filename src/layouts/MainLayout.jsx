@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard,
@@ -89,19 +89,19 @@ export default function MainLayout() {
           </div>
           <nav className="sidebar-nav">
             {navItems.map((item) => {
-              const isActive = window.location.pathname === item.path
               return (
-                <Link
+                <NavLink
                   key={item.name}
                   to={item.path}
-                  className={`sidebar-nav-item ${
-                    isActive ? 'active' : ''
-                  } flex items-center gap-3`}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    `sidebar-nav-item ${isActive ? 'active' : ''} flex items-center gap-3`
+                  }
                 >
                   <item.icon size={18} />
                   {item.name}
                   <ChevronRight size={14} className="ml-auto text-muted" />
-                </Link>
+                </NavLink>
               )
             })}
           </nav>

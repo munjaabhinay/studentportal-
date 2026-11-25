@@ -28,7 +28,7 @@ export default function AddCourse() {
       return
     }
 
-    if (!courseName || !trainerName || !duration) {
+    if (!courseName.trim() || !trainerName.trim() || !duration.trim()) {
       setError('Please fill in all required fields.')
       return
     }
@@ -36,7 +36,7 @@ export default function AddCourse() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.from('courses').insert([
+      const { error } = await supabase.from('courses').insert([
         {
           course_name: courseName.trim(),
           trainer_name: trainerName.trim(),

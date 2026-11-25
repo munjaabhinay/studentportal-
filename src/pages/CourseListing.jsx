@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Trash2, Edit3, Eye, Plus, Search, Filter } from 'lucide-react'
+import { Trash2, Edit3, Plus, Search } from 'lucide-react'
 
 export default function CourseListing() {
-  const { user, profile } = useAuth()
-  const navigate = useNavigate()
+  const { profile } = useAuth()
   const [courses, setCourses] = useState([])
   const [filteredCourses, setFilteredCourses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -198,7 +197,7 @@ export default function CourseListing() {
                     <th>Trainer</th>
                     <th>Duration</th>
                     <th className="text-center">Created</th>
-                    <th className="text-right">Actions</th>
+                    {isAdmin && <th className="text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -210,16 +209,16 @@ export default function CourseListing() {
                       <td className="text-center text-sm text-muted">
                         {new Date(course.created_at).toLocaleDateString()}
                       </td>
-                      <td className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            to={`/courses/${course.id}/edit`}
-                            className="btn btn-outline btn-sm"
-                            title="Edit course"
-                          >
-                            <Edit3 size={16} />
-                          </Link>
-                          {isAdmin && (
+                      {isAdmin && (
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              to={`/courses/${course.id}/edit`}
+                              className="btn btn-outline btn-sm"
+                              title="Edit course"
+                            >
+                              <Edit3 size={16} />
+                            </Link>
                             <button
                               onClick={() => handleDelete(course.id)}
                               disabled={deletingId === course.id}
@@ -232,9 +231,9 @@ export default function CourseListing() {
                                 <Trash2 size={16} />
                               )}
                             </button>
-                          )}
-                        </div>
-                      </td>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

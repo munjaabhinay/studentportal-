@@ -75,7 +75,7 @@ student-course-portal/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ installed
+- Node.js 20.19+ or 22.12+ installed (required by Vite 8)
 - Supabase account (https://supabase.com)
 
 ### 1. Clone the Repository
@@ -100,7 +100,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 Get these values from your Supabase dashboard: **Project Settings > API**
 
-⚠️ **Never commit `.env` to GitHub.** It is listed in `.gitignore`.
+⚠️ **Never commit `.env` or other environment-specific `.env.*` files to GitHub.** Only `.env.example` is intended to be tracked. Frontend variables are included in the built JavaScript, so use only a Supabase anon/publishable key here—never a `service_role` or secret key.
 
 ### 4. Set Up Supabase Database
 
@@ -150,10 +150,22 @@ npm run preview
 
 1. Push code to GitHub
 2. Connect GitHub repository to Vercel
-3. Add environment variables in Vercel dashboard:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-4. Deploy
+3. In Vercel, open **Project Settings → Environment Variables** and add these exact names:
+   - `VITE_SUPABASE_URL` — Supabase **Project URL**
+   - `VITE_SUPABASE_ANON_KEY` — Supabase **anon public** key (or a Supabase publishable key)
+4. Enable both variables for **Production** and **Preview**. Add them to **Development** too only if using Vercel's local development workflow.
+5. Save the variables and trigger a **new deployment**. Vite embeds `VITE_` variables at build time; changing them does not update an already-built deployment.
+
+The Vercel build command is `npm run build` and the output directory is `dist` (configured in `vercel.json`). The rewrite to `/index.html` supports client-side routes. Confirm the Vercel project uses the repository root as its Root Directory.
+
+The local `.env` and `.env.example` files supplied with this workspace contain example placeholders only. Copy `.env.example` to `.env` for local work and replace both values with those from your own Supabase project; `.env` is ignored and must never be committed.
+
+If you already applied an earlier version of `database/schema.sql`, run this SQL once in the Supabase SQL Editor to prevent users from updating their own profile role:
+
+```sql
+REVOKE UPDATE ON TABLE public.profiles FROM authenticated;
+GRANT UPDATE (full_name, email) ON TABLE public.profiles TO authenticated;
+```
 
 ### ⚠️ Fix for "Permission Denied" Build Error on Vercel
 
@@ -180,8 +192,6 @@ If Vercel shows `Permission denied` on the `vite` binary during build (exit code
 ```
 
 The `postinstall` script runs after `npm install` and fixes execute permissions on the `vite` binary. The `rewrites` rule ensures refreshing on any route (e.g., `/courses/add`) serves `index.html` instead of returning 404, which is required for React Router SPA applications.
-
-5. Verify production URL connects to Supabase
 
 ## 📱 Screenshots
 
