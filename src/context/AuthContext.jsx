@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../services/supabase'
+import { supabase, isSupabaseReady } from '../services/supabase'
 
 const AuthContext = createContext(null)
 
@@ -27,6 +27,12 @@ export function AuthProvider({ children }) {
 
   // Listen for authentication state changes
   useEffect(() => {
+    // If Supabase is not configured, stop loading
+    if (!isSupabaseReady()) {
+      setLoading(false)
+      return
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
@@ -56,6 +62,10 @@ export function AuthProvider({ children }) {
 
   // Sign up with email and password
   const signUp = async (email, password, fullName) => {
+    if (!isSupabaseReady()) {
+      return { data: null, error: 'Supabase is not configured. Please contact administrator.' }
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -76,6 +86,10 @@ export function AuthProvider({ children }) {
 
   // Sign in with email and password
   const signIn = async (email, password) => {
+    if (!isSupabaseReady()) {
+      return { data: null, error: 'Supabase is not configured. Please contact administrator.' }
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -91,6 +105,12 @@ export function AuthProvider({ children }) {
 
   // Sign out
   const signOut = async () => {
+    if (!isSupabaseReady()) {
+      setUser(null)
+      setProfile(null)
+      return
+    }
+
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
@@ -108,6 +128,7 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
+    isSupabaseReady,
   }
 
   return (
