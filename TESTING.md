@@ -15,9 +15,11 @@
 | 9 | Login with invalid credentials | Error message displayed | ⏳ |
 | 10 | Existing unconfirmed account after disabling Confirm email | Login remains blocked until an authorized admin updates the account in Supabase Auth Users | ⏳ |
 | 11 | Signup receives Supabase HTTP 429/email rate limit error | Helpful temporary rate-limit message appears; no automatic retry | ⏳ |
-| 12 | Click Logout | Session cleared, redirected to login | ⏳ |
-| 13 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
-| 14 | Access /courses/add without login | Redirected to /login | ⏳ |
+| 12 | Double-click Create Account while signup is pending | Submit button remains disabled and only one Auth signup request is sent | ⏳ |
+| 13 | Signup Auth response reports an existing account | Generic sign-in guidance appears without exposing account details or creating a duplicate profile | ⏳ |
+| 14 | Click Logout | Session cleared, redirected to login | ⏳ |
+| 15 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
+| 16 | Access /courses/add without login | Redirected to /login | ⏳ |
 
 ## Protected Route Tests
 

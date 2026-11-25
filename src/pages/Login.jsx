@@ -1,7 +1,37 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Mail, Lock, AlertCircle, ChevronRight } from 'lucide-react'
+
+function getAuthErrorMessage(error, action) {
+  const code = error?.code?.toLowerCase() || ''
+  const message = error?.message || ''
+  const status = Number(error?.status)
+
+  if (message === 'Full name is required for sign up.' || message === 'Passwords do not match.') {
+    return message
+  }
+
+  if (status === 429 || /rate.?limit|too many requests/i.test(`${code} ${message}`)) {
+    return 'Supabase temporarily limited signup attempts. Wait before trying again; the app will not retry automatically.'
+  }
+
+  if (/user_already_exists|email_exists|already registered|already exists/i.test(`${code} ${message}`)) {
+    return 'Unable to create this account. If you already registered, sign in; otherwise check the email and try again later.'
+  }
+
+  if (action === 'login' && /email not confirmed|email_not_confirmed/i.test(`${code} ${message}`)) {
+    return 'Unable to sign in. Check your credentials and account status, or contact an administrator.'
+  }
+
+  if (code === 'supabase_not_configured') {
+    return message
+  }
+
+  return action === 'signup'
+    ? 'Unable to create your account. Check your details and try again.'
+    : 'Unable to sign in. Check your credentials and try again.'
+}
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -9,42 +39,44 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [mode, setMode] = useState('login') // 'login' or 'signup'
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const submittingRef = useRef(false)
 
   const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
-    setLoading(true)
+    if (submittingRef.current) return
+
+    setError(null)
+    const action = mode
+
+    if (action === 'signup' && !fullName.trim()) {
+      setError({ message: 'Full name is required for sign up.' })
+      return
+    }
+    if (action === 'signup' && password !== confirmPassword) {
+      setError({ message: 'Passwords do not match.' })
+      return
+    }
+
+    submittingRef.current = true
+    setIsLoading(true)
 
     try {
-      if (mode === 'login') {
+      if (action === 'login') {
         const { data, error: err } = await signIn(email, password)
         if (err) {
-          setError(/email not confirmed|email_not_confirmed/i.test(err)
-            ? 'Unable to sign in. Check your credentials and account status, or contact an administrator.'
-            : err)
+          setError(err)
         } else if (data) {
           navigate(data.profile?.role === 'admin' ? '/admin' : '/dashboard')
         }
       } else {
-        if (!fullName.trim()) {
-          setError('Full name is required for sign up.')
-          return
-        }
-        if (password !== confirmPassword) {
-          setError('Passwords do not match.')
-          return
-        }
-
         const { data, error: err } = await signUp(email, password, fullName.trim())
         if (err) {
-          setError(/rate limit|too many requests|429/i.test(err)
-            ? 'Signup is temporarily rate-limited by Supabase. Wait before trying again and avoid repeated submissions. If this continues, ask the project administrator to check Supabase Authentication rate limits and email provider settings.'
-            : err)
+          setError(err)
         } else if (data?.session) {
           navigate(data.profile?.role === 'admin' ? '/admin' : '/dashboard', {
             state: { success: 'Account created successfully.' },
@@ -54,9 +86,14 @@ export default function Login() {
         }
       }
     } catch (submitError) {
-      setError(submitError.message || 'Unable to complete your request.')
+      setError({
+        code: submitError?.code ?? null,
+        status: submitError?.status ?? null,
+        message: submitError?.message || 'Unable to complete your request.',
+      })
     } finally {
-      setLoading(false)
+      submittingRef.current = false
+      setIsLoading(false)
     }
   }
 
@@ -80,7 +117,15 @@ export default function Login() {
         {error && (
           <div className="alert alert-error">
             <AlertCircle size={18} />
-            {error}
+            <div>
+              <p>{getAuthErrorMessage(error, mode)}</p>
+              {error.code && (
+                <p className="mt-1 text-xs">Supabase error code: {error.code}</p>
+              )}
+              {error.status && (
+                <p className="mt-1 text-xs">HTTP status: {error.status}</p>
+              )}
+            </div>
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -154,9 +199,9 @@ export default function Login() {
           <button
             type="submit"
             className="btn btn-primary btn-block w-full"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? (
+            {isLoading ? (
               <span className="flex items-center justify-center gap-2">
                 <div className="spinner" />
                 {mode === 'login' ? 'Signing in...' : 'Creating account...'}
@@ -177,7 +222,8 @@ export default function Login() {
                 Don't have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('signup')}
+                  onClick={() => { setError(null); setMode('signup') }}
+                  disabled={isLoading}
                   className="text-primary font-medium hover:underline"
                 >
                   Sign up
@@ -190,7 +236,8 @@ export default function Login() {
                 Already have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('login')}
+                  onClick={() => { setError(null); setMode('login') }}
+                  disabled={isLoading}
                   className="text-primary font-medium hover:underline"
                 >
                   Sign in

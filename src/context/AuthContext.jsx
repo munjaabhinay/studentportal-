@@ -3,6 +3,12 @@ import { supabase, isSupabaseReady } from '../services/supabase'
 
 const AuthContext = createContext(null)
 
+const normalizeAuthError = (error) => ({
+  code: error?.code ?? null,
+  status: error?.status ?? null,
+  message: error?.message || 'The authentication request failed.',
+})
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -76,7 +82,14 @@ export function AuthProvider({ children }) {
   // Sign up with email and password
   const signUp = async (email, password, fullName) => {
     if (!isSupabaseReady()) {
-      return { data: null, error: 'Supabase is not configured. Please contact administrator.' }
+      return {
+        data: null,
+        error: {
+          code: 'supabase_not_configured',
+          status: null,
+          message: 'Supabase is not configured. Please contact an administrator.',
+        },
+      }
     }
 
     try {
@@ -91,6 +104,16 @@ export function AuthProvider({ children }) {
       })
 
       if (error) throw error
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return {
+          data: null,
+          error: {
+            code: null,
+            status: null,
+            message: 'An account may already exist or signup could not be completed. Try signing in, or try again later.',
+          },
+        }
+      }
       let nextProfile = null
       if (data.session?.user) {
         setUser(data.session.user)
@@ -104,14 +127,21 @@ export function AuthProvider({ children }) {
       }
       return { data: { ...data, profile: nextProfile }, error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      return { data: null, error: normalizeAuthError(error) }
     }
   }
 
   // Sign in with email and password
   const signIn = async (email, password) => {
     if (!isSupabaseReady()) {
-      return { data: null, error: 'Supabase is not configured. Please contact administrator.' }
+      return {
+        data: null,
+        error: {
+          code: 'supabase_not_configured',
+          status: null,
+          message: 'Supabase is not configured. Please contact an administrator.',
+        },
+      }
     }
 
     try {
@@ -133,7 +163,7 @@ export function AuthProvider({ children }) {
       }
       return { data, error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      return { data: null, error: normalizeAuthError(error) }
     }
   }
 
