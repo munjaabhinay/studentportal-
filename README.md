@@ -156,6 +156,8 @@ npm run preview
 4. Enable both variables for **Production** and **Preview**. Add them to **Development** too only if using Vercel's local development workflow.
 5. Save the variables and trigger a **new deployment**. Vite embeds `VITE_` variables at build time; changing them does not update an already-built deployment.
 
+For the Vercel-Supabase integration, the Vite config also accepts `SUPABASE_URL` and `SUPABASE_ANON_KEY`, or `NEXT_PUBLIC_SUPABASE_ANON_KEY` for the public key. Explicit mappings are used; other `SUPABASE_*` variables such as database credentials are never exposed to browser code. When multiple supported names are set, `VITE_` names take precedence.
+
 The Vercel build command is `npm run build` and the output directory is `dist` (configured in `vercel.json`). The rewrite to `/index.html` supports client-side routes. Confirm the Vercel project uses the repository root as its Root Directory.
 
 The local `.env` and `.env.example` files supplied with this workspace contain example placeholders only. Copy `.env.example` to `.env` for local work and replace both values with those from your own Supabase project; `.env` is ignored and must never be committed.
