@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase'
 import { Trash2, Edit3, Plus, Search } from 'lucide-react'
 
 export default function CourseListing() {
-  const { profile } = useAuth()
+  const { isAdmin } = useAuth()
   const [courses, setCourses] = useState([])
   const [filteredCourses, setFilteredCourses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -83,8 +83,6 @@ export default function CourseListing() {
       console.error('Delete error:', err)
     }
   }
-
-  const isAdmin = profile?.role === 'admin'
 
   // Get unique duration values for filter dropdown
   const durations = [

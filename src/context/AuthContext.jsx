@@ -6,22 +6,17 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [profileError, setProfileError] = useState('')
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
 
-      if (error) throw error
-      return data
-    } catch (error) {
-      console.error('Error fetching profile:', error.message)
-      return null
-    }
+    return { data, error }
   }
 
   useEffect(() => {
@@ -31,18 +26,21 @@ export function AuthProvider({ children }) {
     }
 
     let active = true
+    let initialized = false
     let currentUserId = null
 
     const syncSession = (session) => {
       const nextUser = session?.user ?? null
-      if (nextUser?.id === currentUserId) {
+      if (initialized && nextUser?.id === currentUserId) {
         setUser(nextUser)
         return
       }
 
+      initialized = true
       currentUserId = nextUser?.id ?? null
       setUser(nextUser)
       setProfile(null)
+      setProfileError('')
 
       if (!nextUser) {
         setLoading(false)
@@ -50,9 +48,17 @@ export function AuthProvider({ children }) {
       }
 
       setLoading(true)
-      void fetchProfile(nextUser.id).then((nextProfile) => {
+      void fetchProfile(nextUser.id).then(({ data, error }) => {
         if (!active || currentUserId !== nextUser.id) return
-        setProfile(nextProfile)
+        setProfile(data)
+        setProfileError(
+          error?.message ||
+            (data ? '' : 'Your account profile was not found. Contact an administrator.')
+        )
+        setLoading(false)
+      }).catch((error) => {
+        if (!active || currentUserId !== nextUser.id) return
+        setProfileError(error.message || 'Unable to load your account profile.')
         setLoading(false)
       })
     }
@@ -112,6 +118,22 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const resendConfirmation = async (email) => {
+    if (!isSupabaseReady()) {
+      return { error: 'Supabase is not configured. Please contact administrator.' }
+    }
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      })
+      return { error: error?.message || null }
+    } catch (error) {
+      return { error: error.message || 'Unable to resend the confirmation email.' }
+    }
+  }
+
   // Sign out
   const signOut = async () => {
     if (!isSupabaseReady()) {
@@ -121,7 +143,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const { error } = await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut({ scope: 'local' })
       if (error) throw error
       setUser(null)
       setProfile(null)
@@ -133,9 +155,13 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     profile,
+    isAdmin: profile?.role === 'admin',
+    isStudent: profile?.role === 'student',
+    profileError,
     loading,
     signUp,
     signIn,
+    resendConfirmation,
     signOut,
     isSupabaseReady,
   }

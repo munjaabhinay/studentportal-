@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 
 export default function EditCourse() {
-  const { profile } = useAuth()
+  const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const { id } = useParams()
 
@@ -18,8 +18,6 @@ export default function EditCourse() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-
-  const isAdmin = profile?.role === 'admin'
 
   useEffect(() => {
     fetchCourse()

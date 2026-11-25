@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 
 export default function Dashboard() {
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const [stats, setStats] = useState({
     totalCourses: 0,
     recentCourses: 0,
@@ -96,7 +96,7 @@ export default function Dashboard() {
               Welcome back, {profile?.full_name || user?.email}!
             </p>
           </div>
-          {profile?.role === 'admin' && (
+          {isAdmin && (
             <div className="flex gap-3">
               <Link to="/courses/add" className="btn btn-primary">
                 <LayoutDashboard size={18} /> Add Course
@@ -131,7 +131,7 @@ export default function Dashboard() {
           >
             <BookOpen size={20} /> View All Courses
           </Link>
-          {profile?.role === 'admin' && (
+          {isAdmin && (
             <Link
               to="/courses/add"
               className="btn btn-primary flex items-center justify-center gap-2 py-4"
@@ -157,7 +157,7 @@ export default function Dashboard() {
           {recentCourses.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-secondary">No courses available yet.</p>
-              {profile?.role === 'admin' && (
+              {isAdmin && (
                 <Link to="/courses/add" className="mt-4 btn btn-primary btn-sm">
                   Add Your First Course
                 </Link>
@@ -172,7 +172,7 @@ export default function Dashboard() {
                     <th>Trainer</th>
                     <th>Duration</th>
                     <th>Created</th>
-                    {profile?.role === 'admin' && (
+                    {isAdmin && (
                       <th className="text-right">Action</th>
                     )}
                   </tr>
@@ -186,7 +186,7 @@ export default function Dashboard() {
                       <td className="text-sm text-muted">
                         {new Date(course.created_at).toLocaleDateString()}
                       </td>
-                      {profile?.role === 'admin' && (
+                      {isAdmin && (
                         <td className="text-right">
                           <Link
                             to={`/courses/${course.id}/edit`}

@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase'
 import { ArrowLeft, Plus } from 'lucide-react'
 
 export default function AddCourse() {
-  const { profile } = useAuth()
+  const { isAdmin } = useAuth()
   const navigate = useNavigate()
 
   const [courseName, setCourseName] = useState('')
@@ -15,8 +15,6 @@ export default function AddCourse() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const isAdmin = profile?.role === 'admin'
 
   const handleSubmit = async (e) => {
     e.preventDefault()

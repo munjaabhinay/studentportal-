@@ -12,7 +12,7 @@ import {
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
@@ -23,6 +23,12 @@ export default function MainLayout() {
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Courses', icon: BookOpen, path: '/courses' },
+    ...(isAdmin
+      ? [
+          { name: 'Admin', icon: LayoutDashboard, path: '/admin' },
+          { name: 'Students', icon: User, path: '/admin/students' },
+        ]
+      : []),
     { name: 'Profile', icon: User, path: '/profile' },
   ]
 

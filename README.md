@@ -24,6 +24,9 @@ The Student Course Management Portal is a centralized web application that allow
 student-course-portal/
 ├── database/
 │   └── schema.sql              # Supabase SQL schema with RLS policies
+├── supabase/
+│   ├── migrations/             # Additive Supabase database migrations
+│   └── promote_existing_user_to_admin.sql # One-time privileged bootstrap
 ├── src/
 │   ├── main.jsx                # Application entry point
 │   ├── App.jsx                 # Routing configuration
@@ -56,14 +59,16 @@ student-course-portal/
 
 **profiles table:**
 - Users can view their own profile
-- Users can update their own profile (excluding role)
-- Users can insert their own profile (auto-created on signup)
+- Users can update their own name and email, never their role
+- Profiles are created by a database trigger; clients cannot insert profiles or grant roles
+- Administrators can view registered profiles
 
 **courses table:**
 - Anyone can view courses (SELECT)
 - Only admins can INSERT courses
 - Only admins can UPDATE courses
 - Only admins can DELETE courses
+- Role checks use a `SECURITY DEFINER` function to avoid recursive profile RLS
 
 ### Security Features
 - ✅ Service role key never exposed in frontend
@@ -234,12 +239,25 @@ Each file includes inline comments explaining its purpose and how it connects to
 3. Copy and paste the contents of `database/schema.sql`
 4. Click **Run** to execute the schema
 
-### 5. Create First Admin User
+### Apply role security migration and create the first admin
 
-1. Sign up through the application at `/login`
-2. In Supabase Dashboard, go to **Table Editor > profiles**
-3. Find your user and change `role` from `'student'` to `'admin'`
-4. Refresh the application
+For an existing portal, **do not rerun `database/schema.sql`**: it contains non-idempotent table/policy creation statements. Run only the migration below. On a brand-new Supabase project, create the base schema once first, then apply this migration.
+
+1. In Supabase Dashboard, open **SQL Editor**.
+2. Copy the contents of `supabase/migrations/20261125173000_secure_profile_roles_and_admin_access.sql` and run it once. It preserves existing data and policies, backfills missing profiles as students, and adds admin/profile protections.
+3. Sign up or confirm your existing account. Email confirmation must remain enabled.
+4. Open `supabase/promote_existing_user_to_admin.sql`, replace `REPLACE_WITH_CONFIRMED_EMAIL` with your confirmed account email, and run it as the authorized project/database administrator in SQL Editor. Do not expose a service-role key to the browser or paste it into application environment variables.
+5. Sign out and sign back in to refresh the profile role. Admin navigation and the `/admin` dashboard will then appear.
+
+The promotion SQL refuses unconfirmed or unknown accounts and should only be used by a trusted database administrator. Students cannot promote themselves or change their role through the application.
+
+### Confirming account email
+
+- Use the confirmation link sent by Supabase after signup. Check spam/junk if it is missing.
+- If login reports **Email not confirmed**, use **Resend confirmation email** on the login page, then open the newest email link.
+- In Supabase Dashboard, check **Authentication → Users** for the account's confirmation status. Email provider settings are under **Authentication → Providers → Email**; keep email confirmation enabled.
+- Configure the Supabase **Site URL** and allowed **Redirect URLs** under Authentication URL settings to include the deployed Vercel origin and any local development URL you use. For production delivery reliability, configure a trusted SMTP provider and review auth email rate limits.
+- The frontend does not bypass confirmation. Once a user is confirmed, normal password login works; a student's profile remains `student` unless an authorized database administrator promotes it.
 
 ### 6. Run Development Server
 ```bash

@@ -12,20 +12,26 @@ export default function Login() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, resendConfirmation } = useAuth()
   const navigate = useNavigate()
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setConfirmationSent(false)
     setLoading(true)
 
     try {
       if (mode === 'login') {
         const { data, error: err } = await signIn(email, password)
         if (err) {
-          setError(err)
+          setError(
+            /email not confirmed|email_not_confirmed/i.test(err)
+              ? 'Your email is not confirmed yet. Confirm it using the link in your inbox, or request a new confirmation email.'
+              : err
+          )
         } else if (data) {
           navigate('/dashboard')
         }
@@ -47,6 +53,20 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleResendConfirmation = async () => {
+    setError('')
+    setSuccess('')
+    setLoading(true)
+    const { error: resendError } = await resendConfirmation(email)
+    if (resendError) {
+      setError(resendError)
+    } else {
+      setSuccess('If this account needs confirmation, a new link has been sent. Check your inbox and spam folder.')
+      setConfirmationSent(true)
+    }
+    setLoading(false)
   }
 
   return (
@@ -73,6 +93,16 @@ export default function Login() {
           </div>
         )}
         {success && <div className="alert alert-success">{success}</div>}
+        {error.includes('not confirmed') && (
+          <button
+            type="button"
+            className="btn btn-outline btn-block mb-4"
+            onClick={handleResendConfirmation}
+            disabled={loading || confirmationSent || !email}
+          >
+            {loading ? 'Sending confirmation...' : 'Resend confirmation email'}
+          </button>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (

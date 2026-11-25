@@ -10,20 +10,85 @@ import AddCourse from './pages/AddCourse'
 import EditCourse from './pages/EditCourse'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
+import AdminDashboard from './pages/AdminDashboard'
+import RegisteredStudents from './pages/RegisteredStudents'
 
 // Layout
 import MainLayout from './layouts/MainLayout'
 
 // ProtectedRoute: redirects to login if not authenticated
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, profileError, loading, signOut } = useAuth()
 
   if (loading) {
-    return null
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-secondary">
+          <div className="spinner" />
+          Loading your account...
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (profileError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card max-w-lg">
+          <div className="card-body text-center">
+            <h1 className="text-xl font-semibold text-danger mb-2">
+              Account profile unavailable
+            </h1>
+            <p className="text-secondary mb-4">{profileError}</p>
+            <p className="text-sm text-muted mb-4">
+              Check that the profile migration has been applied, then sign in again.
+            </p>
+            <button
+              className="btn btn-outline"
+              onClick={() => void signOut()}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return children
+}
+
+function AdminRoute({ children }) {
+  const { isAdmin, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-secondary">
+          <div className="spinner" />
+          Checking administrator access...
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="main-content p-6">
+        <div className="card">
+          <div className="card-body text-center">
+            <h1 className="text-xl font-semibold text-danger mb-2">Access denied</h1>
+            <p className="text-secondary">
+              This page is available to administrators only.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return children
@@ -75,9 +140,39 @@ function App() {
           }
         >
           <Route path="dashboard" element={<Dashboard />} />
+          <Route
+            path="admin"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="admin/students"
+            element={
+              <AdminRoute>
+                <RegisteredStudents />
+              </AdminRoute>
+            }
+          />
           <Route path="courses" element={<CourseListing />} />
-          <Route path="courses/add" element={<AddCourse />} />
-          <Route path="courses/:id/edit" element={<EditCourse />} />
+          <Route
+            path="courses/add"
+            element={
+              <AdminRoute>
+                <AddCourse />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="courses/:id/edit"
+            element={
+              <AdminRoute>
+                <EditCourse />
+              </AdminRoute>
+            }
+          />
           <Route path="profile" element={<Profile />} />
         </Route>
 
