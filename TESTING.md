@@ -5,15 +5,18 @@
 | # | Test Case | Expected Result | Status |
 |---|-----------|-----------------|--------|
 | 1 | Navigate to /login | Login page displays with sign in form | ⏳ |
-| 2 | Click "Sign up" link | Form switches to sign up mode with Full Name field | ⏳ |
-| 3 | Sign up with valid email/password | Account created, profile auto-created, redirected to dashboard | ⏳ |
-| 4 | Sign up with short password (<6 chars) | Error message displayed | ⏳ |
-| 5 | Sign up with existing email | Error: "User already registered" | ⏳ |
-| 6 | Login with valid credentials | Session established, redirected to dashboard | ⏳ |
-| 7 | Login with invalid credentials | Error message displayed | ⏳ |
-| 8 | Click Logout | Session cleared, redirected to login | ⏳ |
-| 9 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
-| 10 | Access /courses/add without login | Redirected to /login | ⏳ |
+| 2 | Click "Sign up" link | Form switches to signup and shows Full Name and Confirm Password | ⏳ |
+| 3 | Sign up with matching valid passwords and Confirm email disabled | Student account/profile created, authenticated session starts, dashboard opens | ⏳ |
+| 4 | Signup passwords do not match | Signup rejected with validation error | ⏳ |
+| 5 | Sign up with short password (<6 chars) | Error message displayed | ⏳ |
+| 6 | Sign up with existing email | Error: "User already registered" | ⏳ |
+| 7 | Login with valid student credentials | Session established, redirected to student dashboard | ⏳ |
+| 8 | Login with valid admin credentials | Session established, redirected to admin dashboard | ⏳ |
+| 9 | Login with invalid credentials | Error message displayed | ⏳ |
+| 10 | Existing unconfirmed account after disabling Confirm email | Login remains blocked until an authorized admin updates the account in Supabase Auth Users | ⏳ |
+| 11 | Click Logout | Session cleared, redirected to login | ⏳ |
+| 12 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
+| 13 | Access /courses/add without login | Redirected to /login | ⏳ |
 
 ## Protected Route Tests
 

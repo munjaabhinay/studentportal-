@@ -91,8 +91,18 @@ export function AuthProvider({ children }) {
       })
 
       if (error) throw error
-      if (data.session?.user) setUser(data.session.user)
-      return { data, error: null }
+      let nextProfile = null
+      if (data.session?.user) {
+        setUser(data.session.user)
+        const { data: fetchedProfile, error: profileFetchError } = await fetchProfile(data.session.user.id)
+        nextProfile = fetchedProfile
+        setProfile(nextProfile)
+        setProfileError(
+          profileFetchError?.message ||
+            (nextProfile ? '' : 'Your account profile was not found. Contact an administrator.')
+        )
+      }
+      return { data: { ...data, profile: nextProfile }, error: null }
     } catch (error) {
       return { data: null, error: error.message }
     }
@@ -111,26 +121,19 @@ export function AuthProvider({ children }) {
       })
 
       if (error) throw error
-      if (data.user) setUser(data.user)
+      if (data.user) {
+        setUser(data.user)
+        const { data: nextProfile, error: profileFetchError } = await fetchProfile(data.user.id)
+        setProfile(nextProfile)
+        setProfileError(
+          profileFetchError?.message ||
+            (nextProfile ? '' : 'Your account profile was not found. Contact an administrator.')
+        )
+        return { data: { ...data, profile: nextProfile }, error: null }
+      }
       return { data, error: null }
     } catch (error) {
       return { data: null, error: error.message }
-    }
-  }
-
-  const resendConfirmation = async (email) => {
-    if (!isSupabaseReady()) {
-      return { error: 'Supabase is not configured. Please contact administrator.' }
-    }
-
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email,
-      })
-      return { error: error?.message || null }
-    } catch (error) {
-      return { error: error.message || 'Unable to resend the confirmation email.' }
     }
   }
 
@@ -161,7 +164,6 @@ export function AuthProvider({ children }) {
     loading,
     signUp,
     signIn,
-    resendConfirmation,
     signOut,
     isSupabaseReady,
   }

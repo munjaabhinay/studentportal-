@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 import {
@@ -13,6 +13,7 @@ import {
 
 export default function Dashboard() {
   const { user, profile, isAdmin } = useAuth()
+  const location = useLocation()
   const [stats, setStats] = useState({
     totalCourses: 0,
     recentCourses: 0,
@@ -87,6 +88,9 @@ export default function Dashboard() {
 
   return (
     <div className="main-content p-6">
+      {location.state?.success && (
+        <div className="alert alert-success">{location.state.success}</div>
+      )}
       {/* Page Header */}
       <div className="page-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

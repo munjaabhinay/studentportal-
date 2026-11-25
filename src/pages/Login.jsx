@@ -6,67 +6,56 @@ import { Mail, Lock, AlertCircle, ChevronRight } from 'lucide-react'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [mode, setMode] = useState('login') // 'login' or 'signup'
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const { signIn, signUp, resendConfirmation } = useAuth()
+  const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
-  const [confirmationSent, setConfirmationSent] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
-    setConfirmationSent(false)
     setLoading(true)
 
     try {
       if (mode === 'login') {
         const { data, error: err } = await signIn(email, password)
         if (err) {
-          setError(
-            /email not confirmed|email_not_confirmed/i.test(err)
-              ? 'Your email is not confirmed yet. Confirm it using the link in your inbox, or request a new confirmation email.'
-              : err
-          )
+          setError(/email not confirmed|email_not_confirmed/i.test(err)
+            ? 'Unable to sign in. Check your credentials and account status, or contact an administrator.'
+            : err)
         } else if (data) {
-          navigate('/dashboard')
+          navigate(data.profile?.role === 'admin' ? '/admin' : '/dashboard')
         }
       } else {
         if (!fullName.trim()) {
           setError('Full name is required for sign up.')
           return
         }
+        if (password !== confirmPassword) {
+          setError('Passwords do not match.')
+          return
+        }
+
         const { data, error: err } = await signUp(email, password, fullName.trim())
         if (err) {
           setError(err)
         } else if (data?.session) {
-          navigate('/dashboard')
-        } else if (data?.user) {
-          setSuccess('Account created. Check your email for a confirmation link, then sign in.')
-          setMode('login')
+          navigate(data.profile?.role === 'admin' ? '/admin' : '/dashboard', {
+            state: { success: 'Account created successfully.' },
+          })
+        } else {
+          setError('Supabase created the account but did not start a session. Check the authentication settings, then try signing in or contact an administrator.')
         }
       }
+    } catch (submitError) {
+      setError(submitError.message || 'Unable to complete your request.')
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleResendConfirmation = async () => {
-    setError('')
-    setSuccess('')
-    setLoading(true)
-    const { error: resendError } = await resendConfirmation(email)
-    if (resendError) {
-      setError(resendError)
-    } else {
-      setSuccess('If this account needs confirmation, a new link has been sent. Check your inbox and spam folder.')
-      setConfirmationSent(true)
-    }
-    setLoading(false)
   }
 
   return (
@@ -92,18 +81,6 @@ export default function Login() {
             {error}
           </div>
         )}
-        {success && <div className="alert alert-success">{success}</div>}
-        {error.includes('not confirmed') && (
-          <button
-            type="button"
-            className="btn btn-outline btn-block mb-4"
-            onClick={handleResendConfirmation}
-            disabled={loading || confirmationSent || !email}
-          >
-            {loading ? 'Sending confirmation...' : 'Resend confirmation email'}
-          </button>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (
             <div className="form-group">
@@ -147,11 +124,30 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               required
               minLength={6}
             />
           </div>
+
+          {mode === 'signup' && (
+            <div className="form-group">
+              <div className="flex items-center gap-2">
+                <Lock size={18} className="text-muted" />
+                <label className="form-label">Confirm password</label>
+              </div>
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={6}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

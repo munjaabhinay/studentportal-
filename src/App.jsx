@@ -94,6 +94,24 @@ function AdminRoute({ children }) {
   return children
 }
 
+function HomeRedirect() {
+  const { user, isAdmin, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-secondary">
+          <div className="spinner" />
+          Loading your account...
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) return <Navigate to="/login" replace />
+  return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
+}
+
 // SupabaseNotConfigured: shows when env vars are missing
 function SupabaseNotConfigured() {
   return (
@@ -129,7 +147,7 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<HomeRedirect />} />
 
         {/* Protected routes (require authentication) */}
         <Route

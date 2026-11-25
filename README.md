@@ -245,19 +245,17 @@ For an existing portal, **do not rerun `database/schema.sql`**: it contains non-
 
 1. In Supabase Dashboard, open **SQL Editor**.
 2. Copy the contents of `supabase/migrations/20261125173000_secure_profile_roles_and_admin_access.sql` and run it once. It preserves existing data and policies, backfills missing profiles as students, and adds admin/profile protections.
-3. Sign up or confirm your existing account. Email confirmation must remain enabled.
+3. In Supabase Dashboard, open **Authentication → Providers → Email** and turn **Confirm email** off. Save the setting. Supabase controls whether signup returns an authenticated session; the frontend cannot disable this project-level setting itself.
 4. Open `supabase/promote_existing_user_to_admin.sql`, replace `REPLACE_WITH_CONFIRMED_EMAIL` with your confirmed account email, and run it as the authorized project/database administrator in SQL Editor. Do not expose a service-role key to the browser or paste it into application environment variables.
 5. Sign out and sign back in to refresh the profile role. Admin navigation and the `/admin` dashboard will then appear.
 
 The promotion SQL refuses unconfirmed or unknown accounts and should only be used by a trusted database administrator. Students cannot promote themselves or change their role through the application.
 
-### Confirming account email
+### Email confirmation setting
 
-- Use the confirmation link sent by Supabase after signup. Check spam/junk if it is missing.
-- If login reports **Email not confirmed**, use **Resend confirmation email** on the login page, then open the newest email link.
-- In Supabase Dashboard, check **Authentication → Users** for the account's confirmation status. Email provider settings are under **Authentication → Providers → Email**; keep email confirmation enabled.
-- Configure the Supabase **Site URL** and allowed **Redirect URLs** under Authentication URL settings to include the deployed Vercel origin and any local development URL you use. For production delivery reliability, configure a trusted SMTP provider and review auth email rate limits.
-- The frontend does not bypass confirmation. Once a user is confirmed, normal password login works; a student's profile remains `student` unless an authorized database administrator promotes it.
+Email confirmation is intentionally disabled for this application. In Supabase Dashboard, open **Authentication → Providers → Email**, turn **Confirm email** off, and save. New signups then return an authenticated session and can enter the portal immediately. This reduces account ownership assurance and may increase fake registrations; retain strong passwords, rate limits, and database RLS.
+
+Changing the setting does not necessarily confirm accounts that were created earlier. Check **Authentication → Users** and have an authorized Supabase administrator update an existing account's confirmation status there before it can sign in. The app does not send verification emails or bypass authentication.
 
 ### 6. Run Development Server
 ```bash

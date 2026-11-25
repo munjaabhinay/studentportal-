@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { BookOpen, Users, ArrowRight } from 'lucide-react'
 import { supabase } from '../services/supabase'
 
 export default function AdminDashboard() {
+  const location = useLocation()
   const [stats, setStats] = useState({ courses: 0, students: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,6 +45,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="main-content p-6">
+      {location.state?.success && (
+        <div className="alert alert-success">{location.state.success}</div>
+      )}
       <header className="page-header">
         <h1 className="page-title">Administrator dashboard</h1>
         <p className="page-subtitle">Manage portal courses and review registered students.</p>
