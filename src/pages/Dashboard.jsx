@@ -8,6 +8,8 @@ import {
   Users,
   Clock,
   ArrowRight,
+  Plus,
+  User,
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -68,16 +70,16 @@ export default function Dashboard() {
       color: 'text-primary',
     },
     {
-      label: 'Enrolled Students',
-      value: stats.totalStudents,
-      icon: Users,
+      label: 'Published Courses',
+      value: stats.totalCourses,
+      icon: Clock,
       color: 'text-success',
     },
     {
-      label: 'Recent Courses',
-      value: stats.recentCourses,
-      icon: Clock,
-      color: 'text-warning',
+      label: 'Enrolled Students',
+      value: stats.totalStudents,
+      icon: Users,
+      color: 'text-info',
     },
   ]
 
@@ -128,6 +130,33 @@ export default function Dashboard() {
             <div className="stat-value">{stat.value}</div>
           </div>
         ))}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mb-6">
+        <h3 className="font-semibold text-primary mb-4">Quick Actions</h3>
+        <div className="grid md:grid-cols-3 gap-4">
+          <Link
+            to="/courses"
+            className="btn btn-outline flex items-center justify-center gap-2 py-4"
+          >
+            <BookOpen size={20} /> View All Courses
+          </Link>
+          {profile?.role === 'admin' && (
+            <Link
+              to="/courses/add"
+              className="btn btn-primary flex items-center justify-center gap-2 py-4"
+            >
+              <Plus size={20} /> Add New Course
+            </Link>
+          )}
+          <Link
+            to="/profile"
+            className="btn btn-outline flex items-center justify-center gap-2 py-4"
+          >
+            <User size={20} /> My Profile
+          </Link>
+        </div>
       </div>
 
       {/* Recent Courses */}

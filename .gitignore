@@ -1,0 +1,46 @@
+# ============================================
+# Student Course Management Portal - .gitignore
+# ============================================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Local environment files (NEVER commit these)
+.env
+.env.local
+.env.*.local
+
+# IDE and editor files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.code-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+coverage/
+.vercel
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-integrity.env

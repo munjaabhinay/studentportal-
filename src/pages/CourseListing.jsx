@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
-import { Trash2, Edit3, Eye, Plus } from 'lucide-react'
+import { Trash2, Edit3, Eye, Plus, Search, Filter } from 'lucide-react'
 
 export default function CourseListing() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
+  const [filteredCourses, setFilteredCourses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [searchText, setSearchText] = useState('')
+  const [durationFilter, setDurationFilter] = useState('all')
 
   useEffect(() => {
     fetchCourses()
@@ -28,6 +31,7 @@ export default function CourseListing() {
 
       if (error) throw error
       setCourses(data || [])
+      setFilteredCourses(data || [])
     } catch (err) {
       setError(err.message || 'Failed to load courses')
       console.error('Course listing error:', err)
@@ -35,6 +39,30 @@ export default function CourseListing() {
       setLoading(false)
     }
   }
+
+  // Filter courses based on search text and duration filter
+  useEffect(() => {
+    let filtered = courses
+
+    // Apply search filter
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim()
+      filtered = filtered.filter(
+        (course) =>
+          course.course_name.toLowerCase().includes(searchLower) ||
+          course.trainer_name.toLowerCase().includes(searchLower)
+      )
+    }
+
+    // Apply duration filter
+    if (durationFilter !== 'all') {
+      filtered = filtered.filter(
+        (course) => course.duration.toLowerCase() === durationFilter.toLowerCase()
+      )
+    }
+
+    setFilteredCourses(filtered)
+  }, [courses, searchText, durationFilter])
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this course?')) {
@@ -48,6 +76,7 @@ export default function CourseListing() {
       if (error) throw error
 
       setCourses((prev) => prev.filter((c) => c.id !== id))
+      setFilteredCourses((prev) => prev.filter((c) => c.id !== id))
       setDeletingId(null)
     } catch (err) {
       setError(err.message || 'Failed to delete course')
@@ -57,6 +86,11 @@ export default function CourseListing() {
   }
 
   const isAdmin = profile?.role === 'admin'
+
+  // Get unique duration values for filter dropdown
+  const durations = [
+    ...new Set(courses.map((c) => c.duration).filter(Boolean)),
+  ].sort()
 
   if (loading) {
     return (
@@ -93,10 +127,57 @@ export default function CourseListing() {
 
       {error && <div className="alert alert-error mb-6">{error}</div>}
 
+      {/* Search & Filter Section */}
+      <div className="card mb-6">
+        <div className="card-body">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Search */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-md">
+              <div className="relative w-full">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  className="form-input pl-10"
+                  type="text"
+                  placeholder="Search courses by name or trainer..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Duration Filter */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <label className="form-label text-sm self-center sm:self-auto">
+                Filter by Duration
+              </label>
+              <select
+                className="form-select"
+                value={durationFilter}
+                onChange={(e) => setDurationFilter(e.target.value)}
+              >
+                <option value="all">All Durations</option>
+                {durations.map((duration) => (
+                  <option key={duration} value={duration}>
+                    {duration}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Results Count */}
+            <div className="text-sm text-muted self-center sm:self-auto">
+              {filteredCourses.length} course{
+                filteredCourses.length !== 1 ? 's' : ''
+              } found
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Courses Table */}
       <div className="card">
         <div className="card-body">
-          {courses.length === 0 ? (
+          {filteredCourses.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-secondary text-lg">No courses found.</p>
               {isAdmin && (
@@ -121,7 +202,7 @@ export default function CourseListing() {
                   </tr>
                 </thead>
                 <tbody>
-                  {courses.map((course) => (
+                  {filteredCourses.map((course) => (
                     <tr key={course.id}>
                       <td className="font-medium">{course.course_name}</td>
                       <td>{course.trainer_name}</td>
