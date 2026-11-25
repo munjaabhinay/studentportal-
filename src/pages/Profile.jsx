@@ -1,18 +1,44 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { User, Mail, ShieldCheck, LogOut, Clock } from 'lucide-react'
+import { User, Mail, ShieldCheck, LogOut, Clock, Save } from 'lucide-react'
 
 export default function Profile() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, signOut, updateProfile } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [fullName, setFullName] = useState(profile?.full_name || '')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  useEffect(() => {
+    setFullName(profile?.full_name || '')
+  }, [profile?.full_name])
 
   const handleSignOut = async () => {
     setLoading(true)
-    await signOut()
-    navigate('/login')
+    const result = await signOut()
+    if (result.error) {
+      setError(result.error.message || 'Unable to sign out. Please try again.')
+    } else {
+      navigate('/login')
+    }
     setLoading(false)
+  }
+
+  const handleProfileSubmit = async (event) => {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    setSaving(true)
+    const result = await updateProfile(fullName.trim())
+    if (result.error) {
+      setError(result.error.message || 'Unable to update your profile.')
+    } else {
+      setSuccess('Profile updated successfully.')
+    }
+    setSaving(false)
   }
 
   return (
@@ -25,6 +51,9 @@ export default function Profile() {
       </div>
 
       <div className="max-w-2xl">
+        {error && <div className="alert alert-error mb-4">{error}</div>}
+        {success && <div className="alert alert-success mb-4">{success}</div>}
+
         {/* Profile Card */}
         <div className="card mb-6">
           <div className="card-body">
@@ -91,6 +120,32 @@ export default function Profile() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="card mb-6">
+          <div className="card-header">
+            <h3 className="font-semibold text-primary">Update profile</h3>
+          </div>
+          <div className="card-body">
+            <form onSubmit={handleProfileSubmit} className="space-y-4">
+              <div className="form-group">
+                <label className="form-label" htmlFor="profile-full-name">Full Name</label>
+                <input
+                  id="profile-full-name"
+                  className="form-input"
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  minLength={1}
+                  maxLength={120}
+                  required
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? <><div className="spinner" /> Saving...</> : <><Save size={18} /> Save changes</>}
+              </button>
+            </form>
           </div>
         </div>
 

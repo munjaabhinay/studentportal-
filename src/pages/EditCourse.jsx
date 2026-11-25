@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../services/supabase'
+import { apiRequest } from '../services/api'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 
 export default function EditCourse() {
@@ -28,13 +28,7 @@ export default function EditCourse() {
       setLoading(true)
       setError('')
 
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (error) throw error
+      const { course: data } = await apiRequest(`/courses/${id}`)
 
       setCourse(data)
       setCourseName(data.course_name || '')
@@ -67,18 +61,15 @@ export default function EditCourse() {
     setSaving(true)
 
     try {
-      const { error } = await supabase
-        .from('courses')
-        .update({
+      await apiRequest(`/courses/${id}`, {
+        method: 'PATCH',
+        body: {
           course_name: courseName.trim(),
           trainer_name: trainerName.trim(),
           duration: duration.trim(),
           description: description.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-
-      if (error) throw error
+        },
+      })
 
       setSuccess('Course updated successfully!')
 
@@ -99,9 +90,7 @@ export default function EditCourse() {
     }
 
     try {
-      const { error } = await supabase.from('courses').delete().eq('id', id)
-
-      if (error) throw error
+      await apiRequest(`/courses/${id}`, { method: 'DELETE' })
 
       navigate('/courses')
     } catch (err) {

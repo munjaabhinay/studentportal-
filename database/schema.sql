@@ -1,193 +1,65 @@
--- ============================================
--- Student Course Management Portal - Database Schema
--- Supabase PostgreSQL
--- ============================================
+-- Fresh-install base schema for the Student Course Management Portal.
+-- For existing installations, apply the timestamped custom-auth migration
+-- instead; it preserves existing profiles and courses.
 
--- Enable UUID extension (required for gen_random_uuid())
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- ============================================
--- TABLE: profiles
--- ============================================
--- Stores user profile information linked to Supabase Auth users.
--- id references auth.users.id from Supabase Authentication.
--- ============================================
-
-CREATE TABLE profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  full_name TEXT,
-  email TEXT,
-  role TEXT DEFAULT 'student' CHECK (role IN ('admin', 'student')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (id)
+CREATE TABLE IF NOT EXISTS public.users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  password_hash TEXT,
+  role TEXT NOT NULL DEFAULT 'student'
+    CONSTRAINT users_role_check CHECK (role IN ('admin', 'student')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT users_password_hash_nonempty
+    CHECK (password_hash IS NULL OR length(password_hash) > 0)
 );
 
--- ============================================
--- TABLE: courses
--- ============================================
--- Stores course information managed by administrators.
--- ============================================
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique_idx
+  ON public.users (lower(email));
+CREATE INDEX IF NOT EXISTS users_role_idx ON public.users (role);
+CREATE INDEX IF NOT EXISTS users_created_at_idx ON public.users (created_at DESC);
 
-CREATE TABLE courses (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS public.courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_name TEXT NOT NULL,
   trainer_name TEXT NOT NULL,
   duration TEXT NOT NULL,
   description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================
--- INDEXES
--- ============================================
+CREATE INDEX IF NOT EXISTS idx_courses_created_at ON public.courses (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_courses_course_name ON public.courses (course_name);
+CREATE INDEX IF NOT EXISTS idx_courses_trainer_name ON public.courses (trainer_name);
 
--- Index on courses.created_at for sorting by newest first
-CREATE INDEX idx_courses_created_at ON courses(created_at DESC);
+CREATE TABLE IF NOT EXISTS public.portal_sessions (
+  sid VARCHAR NOT NULL PRIMARY KEY,
+  sess JSON NOT NULL,
+  expire TIMESTAMP(6) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS portal_sessions_expire_idx ON public.portal_sessions (expire);
 
--- Index on courses.course_name for search performance
-CREATE INDEX idx_courses_course_name ON courses(course_name);
+CREATE TABLE IF NOT EXISTS public.portal_activation_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- Index on courses.trainer_name for search performance
-CREATE INDEX idx_courses_trainer_name ON courses(trainer_name);
+CREATE TABLE IF NOT EXISTS public.portal_rate_limits (
+  bucket_key TEXT PRIMARY KEY,
+  window_started_at TIMESTAMPTZ NOT NULL,
+  hit_count INTEGER NOT NULL CHECK (hit_count > 0)
+);
 
--- ============================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================
--- RLS ensures that database operations are secure even if
--- the frontend is compromised. Policies are evaluated on
--- the server side by Supabase.
-
--- Enable RLS on profiles table
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-
--- Enable RLS on courses table
-ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
-
--- ============================================
--- RLS POLICIES: profiles table
--- ============================================
-
--- Users can view their own profile
-CREATE POLICY "Users can view their own profile"
-  ON profiles FOR SELECT
-  USING (auth.uid() = id);
-
--- Users can update their own profile (but NOT their role)
-CREATE POLICY "Users can update their own profile"
-  ON profiles FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- Restrict profile updates to editable fields so users cannot change their role.
-REVOKE UPDATE ON TABLE public.profiles FROM authenticated;
-GRANT UPDATE (full_name, email) ON TABLE public.profiles TO authenticated;
-
--- Users can insert their own profile (on signup)
-CREATE POLICY "Users can insert their own profile"
-  ON profiles FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
--- ============================================
--- RLS POLICIES: courses table
--- ============================================
-
--- Anyone (authenticated or not) can view courses
-CREATE POLICY "Anyone can view courses"
-  ON courses FOR SELECT
-  USING (true);
-
--- Only authenticated users with admin role can insert courses
-CREATE POLICY "Only admins can insert courses"
-  ON courses FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Only authenticated users with admin role can update courses
-CREATE POLICY "Only admins can update courses"
-  ON courses FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- Only authenticated users with admin role can delete courses
-CREATE POLICY "Only admins can delete courses"
-  ON courses FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
--- ============================================
--- TRIGGER: Auto-update updated_at on courses
--- ============================================
-
-CREATE OR REPLACE FUNCTION update_courses_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_courses_updated_at
-  BEFORE UPDATE ON courses
-  FOR EACH ROW
-  EXECUTE FUNCTION update_courses_updated_at();
-
--- ============================================
--- TRIGGER: Auto-update updated_at on profiles
--- ============================================
-
-CREATE OR REPLACE FUNCTION update_profiles_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_profiles_updated_at
-  BEFORE UPDATE ON profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION update_profiles_updated_at();
-
--- ============================================
--- TRIGGER: Auto-create profile when new user signs up
--- ============================================
--- When Supabase Auth creates a new user, this trigger
--- automatically creates a matching row in the profiles table.
--- This ensures every authenticated user has a profile record.
-
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, full_name, email, role)
-  VALUES (
-    NEW.id,
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.email,
-    'student'  -- Default role: student. Only admins can assign admin role.
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user();
-
--- ============================================
--- END OF SCHEMA
--- ============================================
+CREATE TABLE IF NOT EXISTS public.portal_bootstrap_state (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  completed_at TIMESTAMPTZ
+);
+INSERT INTO public.portal_bootstrap_state (id, completed_at)
+VALUES (TRUE, NULL)
+ON CONFLICT (id) DO NOTHING;

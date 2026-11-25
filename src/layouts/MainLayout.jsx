@@ -12,11 +12,17 @@ import {
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
   const { user, profile, isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
-    await signOut()
+    setSignOutError('')
+    const result = await signOut()
+    if (result.error) {
+      setSignOutError(result.error.message || 'Unable to sign out. Please try again.')
+      return
+    }
     navigate('/login')
   }
 
@@ -136,6 +142,7 @@ export default function MainLayout() {
 
         {/* Page content - child routes render here via Outlet */}
         <main className="main-content w-full">
+          {signOutError && <div className="alert alert-error m-4">{signOutError}</div>}
           <Outlet />
         </main>
       </div>

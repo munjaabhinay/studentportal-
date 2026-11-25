@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { isSupabaseReady, supabaseConfigError } from './services/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
 // Pages
@@ -18,7 +17,7 @@ import MainLayout from './layouts/MainLayout'
 
 // ProtectedRoute: redirects to login if not authenticated
 function ProtectedRoute({ children }) {
-  const { user, profileError, loading, signOut } = useAuth()
+  const { user, profileError, loading } = useAuth()
 
   if (loading) {
     return (
@@ -31,32 +30,26 @@ function ProtectedRoute({ children }) {
     )
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
-
   if (profileError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="card max-w-lg">
           <div className="card-body text-center">
             <h1 className="text-xl font-semibold text-danger mb-2">
-              Account profile unavailable
+              Portal service unavailable
             </h1>
             <p className="text-secondary mb-4">{profileError}</p>
-            <p className="text-sm text-muted mb-4">
-              Check that the profile migration has been applied, then sign in again.
-            </p>
-            <button
-              className="btn btn-outline"
-              onClick={() => void signOut()}
-            >
-              Sign out
+            <button className="btn btn-outline" onClick={() => window.location.reload()}>
+              Try again
             </button>
           </div>
         </div>
       </div>
     )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
   }
 
   return children
@@ -112,36 +105,7 @@ function HomeRedirect() {
   return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
 }
 
-// SupabaseNotConfigured: shows when env vars are missing
-function SupabaseNotConfigured() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-body p-6 text-center">
-      <div className="max-w-md">
-        <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-4 text-warning">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2.45l-.23-.22a.246.246 0 0 1-.354-.354l.22-.23V9.5h2.45v2.45zm.02-6.95h-2.45V6.05h2.45z" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-semibold text-primary mb-2">Configuration Missing</h2>
-        <p className="text-secondary mb-6">
-          {supabaseConfigError} Set these values in your deployment environment and create a new deployment.
-        </p>
-        <div className="text-left text-sm text-muted space-y-2">
-          <p><strong>1.</strong> Go to your Supabase project → Settings → API</p>
-          <p><strong>2.</strong> Copy the Project URL and anon public or publishable key</p>
-          <p><strong>3.</strong> Add them in Vercel → Settings → Environment Variables for Production and Preview</p>
-          <p><strong>4.</strong> Start a new deployment so Vite can include the values in the build</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function App() {
-  if (!isSupabaseReady()) {
-    return <SupabaseNotConfigured />
-  }
-
   return (
     <AuthProvider>
       <Routes>

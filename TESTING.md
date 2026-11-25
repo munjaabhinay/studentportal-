@@ -1,114 +1,51 @@
-# Student Course Management Portal - Testing Checklist
+# Student Course Portal Test Plan
 
-## Authentication Tests
+## Automated checks
 
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 1 | Navigate to /login | Login page displays with sign in form | ⏳ |
-| 2 | Click "Sign up" link | Form switches to signup and shows Full Name and Confirm Password | ⏳ |
-| 3 | Sign up with matching valid passwords and Confirm email disabled | Student account/profile created, authenticated session starts, dashboard opens | ⏳ |
-| 4 | Signup passwords do not match | Signup rejected with validation error | ⏳ |
-| 5 | Sign up with short password (<6 chars) | Error message displayed | ⏳ |
-| 6 | Sign up with existing email | Error: "User already registered" | ⏳ |
-| 7 | Login with valid student credentials | Session established, redirected to student dashboard | ⏳ |
-| 8 | Login with valid admin credentials | Session established, redirected to admin dashboard | ⏳ |
-| 9 | Login with invalid credentials | Error message displayed | ⏳ |
-| 10 | Existing unconfirmed account after disabling Confirm email | Login remains blocked until an authorized admin updates the account in Supabase Auth Users | ⏳ |
-| 11 | Signup receives Supabase HTTP 429/email rate limit error | Helpful temporary rate-limit message appears; no automatic retry | ⏳ |
-| 12 | Double-click Create Account while signup is pending | Submit button remains disabled and only one Auth signup request is sent | ⏳ |
-| 13 | Signup Auth response reports an existing account | Generic sign-in guidance appears without exposing account details or creating a duplicate profile | ⏳ |
-| 14 | Click Logout | Session cleared, redirected to login | ⏳ |
-| 15 | Refresh page while logged in | Session persists, user remains logged in | ⏳ |
-| 16 | Access /courses/add without login | Redirected to /login | ⏳ |
+Run:
 
-## Protected Route Tests
+```bash
+npm test
+npm run build
+```
 
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 11 | Access /dashboard without login | Redirected to /login | ⏳ |
-| 12 | Access /courses without login | Redirected to /login | ⏳ |
-| 13 | Access /profile without login | Redirected to /login | ⏳ |
-| 14 | Access /dashboard after login | Dashboard displays with user data | ⏳ |
+The Node test suite covers email, password, name, UUID validation, and safe user serialization. These tests do not require a live database.
 
-## Role-Based Access Control Tests
+## API and authentication checks
 
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 15 | Student accesses /courses/add | "Access Denied" message displayed | ⏳ |
-| 16 | Admin accesses /courses/add | Add Course form displayed | ⏳ |
-| 17 | Student sees Add Course button | Button hidden on Dashboard and Course Listing | ⏳ |
-| 18 | Student sees Delete button | Delete button hidden on course rows | ⏳ |
-| 19 | Admin sees Add Course button | Button visible on Dashboard and Course Listing | ⏳ |
+With the migration applied and the API running against a test database, verify:
 
-## Course Management Tests (Admin Only)
+| Test | Expected result |
+|---|---|
+| Register a new account | One `public.users` row with bcrypt hash and `student` role; authenticated HttpOnly session cookie |
+| Register an existing email, including different letter casing | Generic registration error; no duplicate user and no account-existence detail |
+| Submit repeated registration/login attempts | HTTP 429 after the configured database-backed limit; no automatic retry |
+| Login with correct credentials | Session created and role returned without `password_hash` |
+| Login with incorrect credentials or an unactivated legacy account | Same generic credentials error |
+| Refresh and request `GET /api/me` | Session persists and returns only safe user fields |
+| Logout | Session deleted and cookie cleared |
+| Activate a legacy account using a valid admin-issued code | Password hash set, one-time code consumed, original ID and role retained |
+| Reuse or expire an activation code | Generic activation error |
+| Student calls admin API or course mutation API | HTTP 403 |
+| Student registers with `role: admin` in request body | Account is still created as `student` |
+| Admin lists/edits/deletes accounts | Authorized actions succeed; hashes never appear in JSON |
+| Admin deletes or demotes the last admin | HTTP 409 |
+| Course list and detail | Available through API |
+| Admin course create/edit/delete | Succeeds with valid data |
+| Student/anonymous course create/edit/delete | HTTP 401/403 |
+| State-changing request from an unapproved Origin | HTTP 403 |
+| Session cookie in production | `HttpOnly`, `Secure`, `SameSite=Lax` |
 
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 20 | View course listing | Table displays all courses from database | ⏳ |
-| 21 | Add new course with valid data | Course created, appears in listing, redirected to /courses | ⏳ |
-| 22 | Add course with empty required fields | Validation error displayed | ⏳ |
-| 23 | Search courses by name | Results filtered in real-time | ⏳ |
-| 24 | Search courses by trainer name | Results filtered in real-time | ⏳ |
-| 25 | Filter by duration | Results filtered by selected duration | ⏳ |
-| 26 | Clear search/filter | All courses displayed again | ⏳ |
-| 27 | Edit course details | Course updated, success message shown | ⏳ |
-| 28 | Delete course | Confirmation dialog, course removed from listing | ⏳ |
-| 29 | Cancel delete | Course remains in listing | ⏳ |
+Use a non-production database. Do not test account deletion or bootstrap against production data.
 
-## Profile Tests
+## Frontend checks
 
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 30 | View own profile | Name, email, role, member since displayed | ⏳ |
-| 31 | Click Sign Out from profile | Signed out, redirected to login | ⏳ |
+Use separate terminals for `npm run dev:api` and `npm run dev`:
 
-## Database Security Tests (RLS)
+- Signup validation, duplicate-email generic response, signup success, and student dashboard redirect.
+- Admin and student login redirects; activation code flow; incorrect credentials; rate-limit message.
+- Protected routes, student denial of admin pages, and logout/session persistence.
+- Profile name update; course list/search/filter; admin course CRUD; admin stats and student account controls.
+- Test responsive layout at desktop and mobile widths; check browser console and Network responses for leaked hashes or session values.
 
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 32 | Student tries to insert course via API | RLS blocks the operation | ⏳ |
-| 33 | Student tries to update course via API | RLS blocks the operation | ⏳ |
-| 34 | Student tries to delete course via API | RLS blocks the operation | ⏳ |
-| 35 | Admin can insert/update/delete courses | Operations succeed | ⏳ |
-| 36 | User cannot change their own role to admin | RLS prevents role modification | ⏳ |
-
-## Mobile Responsiveness Tests
-
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 37 | Open on mobile (<768px) | Sidebar hidden, hamburger menu available | ⏳ |
-| 38 | Toggle sidebar on mobile | Sidebar slides in from left | ⏳ |
-| 39 | Course table on mobile | Horizontal scroll available | ⏳ |
-| 40 | Login form on mobile | Centered, fits screen width | ⏳ |
-
-## Production Build Tests
-
-| # | Test Case | Expected Result | Status |
-|---|-----------|-----------------|--------|
-| 41 | `npm run build` completes | No errors, dist/ folder created | ✅ |
-| 42 | `npm run preview` works | Production build serves correctly | ⏳ |
-
-**Legend:** ✅ Passed | ⏳ Pending
-
----
-
-### How to Run Tests
-
-1. **Start development server:** `npm run dev`
-2. **Open browser:** http://localhost:5173
-3. **Test each item above** manually by interacting with the UI
-4. **Check browser console** for any JavaScript errors
-5. **Check Supabase Dashboard** > Authentication > Users to verify accounts
-6. **Check Supabase Dashboard** > Table Editor to verify data
-
----
-
-### Testing After Supabase Connection
-
-Before testing, ensure:
-- [ ] Supabase project created at https://supabase.com
-- [ ] Schema.sql executed in Supabase SQL Editor
-- [ ] Local `.env` configured with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (never use a service-role/secret key in the frontend)
-- [ ] Development server restarted after .env changes
-
-For Vercel, set both variables for **Production** and **Preview**, then trigger a new deployment because Vite embeds them during the build.
+Live database/API and responsive browser tests must be reported separately from the automated tests; a passing Vite build does not validate them.

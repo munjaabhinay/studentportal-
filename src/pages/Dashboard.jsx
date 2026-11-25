@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../services/supabase'
+import { apiRequest } from '../services/api'
 import {
   LayoutDashboard,
   BookOpen,
@@ -31,27 +31,14 @@ export default function Dashboard() {
       setLoading(true)
       setError('')
 
-      // Fetch course count
-      const { count: courseCount, error: courseError } = await supabase
-        .from('courses')
-        .select('*', { count: 'exact', head: true })
-
-      if (courseError) throw courseError
-
-      // Fetch recent courses
-      const { data: coursesData, error: coursesError } = await supabase
-        .from('courses')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (coursesError) throw coursesError
+      const { courses } = await apiRequest('/courses')
+      const coursesData = courses.slice(0, 5)
 
       setStats({
-        totalCourses: courseCount || 0,
-        recentCourses: coursesData?.length || 0,
+        totalCourses: courses.length,
+        recentCourses: coursesData.length,
       })
-      setRecentCourses(coursesData || [])
+      setRecentCourses(coursesData)
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data')
       console.error('Dashboard error:', err)

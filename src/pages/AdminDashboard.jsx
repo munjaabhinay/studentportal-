@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BookOpen, Users, ArrowRight } from 'lucide-react'
-import { supabase } from '../services/supabase'
+import { apiRequest } from '../services/api'
 
 export default function AdminDashboard() {
   const location = useLocation()
@@ -14,21 +14,9 @@ export default function AdminDashboard() {
 
     const loadStats = async () => {
       try {
-        const [coursesResult, studentsResult] = await Promise.all([
-          supabase.from('courses').select('*', { count: 'exact', head: true }),
-          supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'student'),
-        ])
-
-        if (coursesResult.error) throw coursesResult.error
-        if (studentsResult.error) throw studentsResult.error
+        const result = await apiRequest('/admin/stats')
         if (active) {
-          setStats({
-            courses: coursesResult.count || 0,
-            students: studentsResult.count || 0,
-          })
+          setStats(result)
         }
       } catch (loadError) {
         if (active) setError(loadError.message || 'Unable to load administrator dashboard.')

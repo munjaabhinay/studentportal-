@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../services/supabase'
+import { apiRequest } from '../services/api'
 import { ArrowLeft, Plus } from 'lucide-react'
 
 export default function AddCourse() {
@@ -34,16 +34,15 @@ export default function AddCourse() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.from('courses').insert([
-        {
+      await apiRequest('/courses', {
+        method: 'POST',
+        body: {
           course_name: courseName.trim(),
           trainer_name: trainerName.trim(),
           duration: duration.trim(),
           description: description.trim(),
         },
-      ])
-
-      if (error) throw error
+      })
 
       setSuccess('Course created successfully!')
       setCourseName('')

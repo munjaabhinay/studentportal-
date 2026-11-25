@@ -1,299 +1,88 @@
 # Student Course Management Portal
 
-A professional full-stack web application for managing courses, built with React, Supabase, and deployed on Vercel.
+React 19 and Vite frontend with an Express API and Supabase-hosted PostgreSQL database. The application does not use Supabase Auth or the Supabase JavaScript client. Password hashing, login, sessions, authorization, and all database access happen on the server.
 
-## 📋 Project Overview
+## Architecture
 
-The Student Course Management Portal is a centralized web application that allows administrators to authenticate, manage courses, and access a dashboard. Students can view courses and their profiles. The application uses Supabase for authentication, database, and row-level security.
+- `src/`: React pages, role-aware routes, and same-origin `/api` requests.
+- `server/`: Express API, PostgreSQL connection pool, database-backed sessions and rate limits, password hashing, authorization, and the one-time admin bootstrap utility.
+- `api/[...path].js`: Vercel Node function entry point for the Express API.
+- `supabase/migrations/20261125180000_custom_database_auth.sql`: incremental migration for custom accounts, activation codes, sessions, rate limits, role grants, and legacy profile import.
+- `database/schema.sql`: base schema for a new database; existing installations must use the incremental migration.
 
-## 🛠 Technology Stack
+## Local setup
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, Vite, JavaScript, CSS3 |
-| Routing | React Router DOM |
-| Icons | Lucide React |
-| Backend | Supabase (Auth + PostgreSQL) |
-| Security | Supabase Row Level Security (RLS) |
-| Deployment | Vercel |
-| Source Control | Git, GitHub |
+Requirements: Node.js 20.19+ (or 22.12+) and an existing Supabase PostgreSQL project.
 
-## 📁 Folder Structure
+1. Apply `supabase/migrations/20261125180000_custom_database_auth.sql` in the Supabase SQL Editor. It imports profile IDs, names, emails, roles, and timestamps into `public.users` with a null password hash, preserves the existing `profiles` and `courses` rows, and removes the old `on_auth_user_created` trigger. It does not import Supabase Auth password hashes, which are not exportable.
+2. The migration creates a non-login `portal_api` database role with the API's table permissions. Create a dedicated database login in Supabase **Database → Roles** and grant it membership:
 
-```
-student-course-portal/
-├── database/
-│   └── schema.sql              # Supabase SQL schema with RLS policies
-├── supabase/
-│   ├── migrations/             # Additive Supabase database migrations
-│   └── promote_existing_user_to_admin.sql # One-time privileged bootstrap
-├── src/
-│   ├── main.jsx                # Application entry point
-│   ├── App.jsx                 # Routing configuration
-│   ├── index.css               # Global styles (CSS variables)
-│   ├── components/             # Reusable UI components
-│   ├── pages/
-│   │   ├── Login.jsx           # Login / Signup page
-│   │   ├── Dashboard.jsx       # Admin dashboard with stats
-│   │   ├── CourseListing.jsx   # Course list with search & filter
-│   │   ├── AddCourse.jsx       # Create course form (admin)
-│   │   ├── EditCourse.jsx      # Edit / Delete course (admin)
-│   │   ├── Profile.jsx         # User profile page
-│   │   └── NotFound.jsx        # 404 page
-│   ├── layouts/
-│   │   └── MainLayout.jsx      # Sidebar + Navbar layout
-│   ├── context/
-│   │   └── AuthContext.jsx     # Authentication state management
-│   ├── hooks/                  # Custom React hooks
-│   ├── services/
-│   │   └── supabase.js         # Supabase client configuration
-│   ├── lib/                    # Utility functions
-│   └── assets/                 # Static assets
-├── .env                        # Supabase credentials (local only)
-├── .env.example                # Environment variable template
-├── .gitignore                  # Git ignore rules
-├── package.json                # Dependencies and scripts
-├── vite.config.js              # Vite configuration
-├── TESTING.md                  # Testing checklist
-### Row Level Security (RLS) Policies
+   ```sql
+   GRANT portal_api TO portal_api_login;
+   ```
 
-**profiles table:**
-- Users can view their own profile
-- Users can update their own name and email, never their role
-- Profiles are created by a database trigger; clients cannot insert profiles or grant roles
-- Administrators can view registered profiles
+   Use that login for the API, not the database owner. Keep its credentials on the server only.
+3. Copy `.env.example` to `.env`. Set `DATABASE_URL` to the dedicated login's PostgreSQL connection string (TLS enabled), generate independent random values for `SESSION_SECRET` and `RATE_LIMIT_SECRET`, and set the exact local origins in `APP_ORIGINS`. Never prefix server secrets with `VITE_`.
+4. Install packages:
 
-**courses table:**
-- Anyone can view courses (SELECT)
-- Only admins can INSERT courses
-- Only admins can UPDATE courses
-- Only admins can DELETE courses
-- Role checks use a `SECURITY DEFINER` function to avoid recursive profile RLS
+   ```bash
+   npm install
+   ```
+5. Start the API and frontend in separate terminals:
 
-### Security Features
-- ✅ Service role key never exposed in frontend
-- ✅ Only `anon` key used in client-side code
-- ✅ Users cannot modify their own role to admin
-- ✅ Default role for new users is 'student'
-- ✅ Database triggers auto-create profiles on signup
+   ```bash
+   npm run dev:api
+   npm run dev
+   ```
 
-## 🚀 Getting Started
+   Open `http://localhost:5173`. Vite proxies `/api` requests to the local Express server.
 
-### Prerequisites
-- Node.js 20.19+ or 22.12+ installed (required by Vite 8)
-- Supabase account (https://supabase.com)
+### Initial administrator and legacy accounts
 
-### 1. Clone the Repository
-```bash
-git clone <your-repository-url>
-cd student-course-portal
-```
+An authorized database operator runs `npm run bootstrap-admin` once from an interactive terminal. The script asks for email, name, and a password without echoing the password, then promotes or creates that first admin and permanently marks bootstrap complete. It does not grant admin through the public registration endpoint. Keep the bootstrap command and database credentials restricted to a trusted operator.
 
-### 2. Install Dependencies
-```bash
-npm install
-```
+Legacy accounts cannot reuse their old Supabase Auth passwords. After the initial admin signs in, open **Registered students** and issue each legacy user a one-time setup/reset code. Codes expire in 48 hours, are stored as hashes, and are shown only once; deliver them to the intended user through a secure channel. Users select **Enter a code** on the login page to set a new password. No email or password-recovery messages are sent.
 
-### 3. Configure Environment Variables
+All self-service registrations receive the `student` role. Authenticated admins may manage accounts through the server API. The API checks the user's current database role for every protected request and prevents deleting or demoting the last admin.
 
-Create a `.env` file in the project root:
+## Database migration notes
+
+- Apply the new migration once to an existing project. Do not rerun `database/schema.sql` against an existing database.
+- The migration aborts before importing when it detects missing or duplicate profile emails, so an operator can resolve those records rather than silently losing them.
+- Existing course and profile tables/data remain in place. New custom accounts and roles are stored in `public.users`.
+- The prior timestamped migration is retained as historical migration history. The new migration drops the legacy Auth profile trigger/function. The application no longer calls Auth or references `auth.users`; no new schema relation points to it.
+- If setting up a brand-new database manually, run `database/schema.sql`, then the timestamped migration. The migration skips profile import when no legacy `profiles` table exists.
+
+## Security
+
+- Passwords use bcrypt with cost factor 12; plain-text passwords are never stored. API serializers never return password hashes.
+- Sessions use an HttpOnly, SameSite cookie and the PostgreSQL-backed session store; production cookies are Secure.
+- Login, registration, and activation are rate-limited using PostgreSQL-backed counters. The API validates request bodies, uses parameterized SQL, sends security headers, limits JSON size, and checks request origins on state-changing requests.
+- Role checks come from `public.users` on the server for each protected operation. Frontend role-based route checks are only for UX and are not an authorization boundary.
+- `DATABASE_URL`, session secrets, and rate-limit secrets must exist only in backend environment settings. The frontend does not contain a Supabase URL, anon key, service-role key, or database credential.
+- Because this is a custom password system without email, users cannot prove email ownership through verification. Password changes for legacy accounts and account resets require an administrator-issued one-time code.
+
+## Vercel deployment
+
+The project is configured as a Vite static site plus Vercel Node functions. `api/[...path].js` serves the Express application under `/api/*`; the existing SPA rewrite serves client-side routes. Keep the project root as the Vercel Root Directory, build command `npm run build`, and output directory `dist`.
+
+Set these **server-side environment variables** for every Vercel environment that should run the app (Production and Preview):
+
+- `DATABASE_URL` — PostgreSQL connection string for a dedicated login that is a member of `portal_api`; use the Supabase pooler/connection option suitable for your deployment region and require TLS.
+- `SESSION_SECRET` — independent random secret, at least 32 characters.
+- `RATE_LIMIT_SECRET` — another independent random secret, at least 32 characters.
+- `APP_ORIGINS` — comma-separated exact browser origins for the deployment, such as `https://your-project.vercel.app`. Add Preview origins explicitly if Preview deployments should be usable.
+- `DATABASE_SSL=true`
+- `PG_POOL_MAX=2` (adjust only with awareness of the Supabase connection limit).
+
+Do not use `VITE_` on these variables. Do not configure Supabase Auth keys for the frontend. Redeploy after changing Vercel environment variables. Configure the Vercel function region near the PostgreSQL project to reduce latency. Vercel functions and the Vite frontend share the same origin, so the session cookie remains first-party.
+
+## Commands
 
 ```bash
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-```
-
-Get these values from your Supabase dashboard: **Project Settings > API**
-
-⚠️ **Never commit `.env` or other environment-specific `.env.*` files to GitHub.** Only `.env.example` is intended to be tracked. Frontend variables are included in the built JavaScript, so use only a Supabase anon/publishable key here—never a `service_role` or secret key.
-
-### 4. Set Up Supabase Database
-
-
-## 🔐 Authentication Flow
-
-1. User visits `/login`
-2. User can sign in or sign up
-3. On signup, Supabase Auth creates the user account
-4. Database trigger automatically creates a `profiles` row with role 'student'
-5. On login, session is established and stored in browser
-6. `AuthContext` listens for auth state changes
-7. Protected routes check for an active session
-8. Logout clears the session and redirects to `/login`
-
-## 🎯 Key Features
-
-- ✅ User authentication (login/signup/logout)
-- ✅ Session persistence (stays logged in on refresh)
-- ✅ Protected routes (redirect to login if not authenticated)
-- ✅ Role-based access control (admin vs student)
-- ✅ Course CRUD (Create, Read, Update, Delete)
-- ✅ Course search (by name or trainer)
-- ✅ Course filtering (by duration)
-- ✅ User profile management
-- ✅ Responsive design (mobile-friendly)
-- ✅ Loading and error states
-- ✅ Production build verified
-
-## 🧪 Testing
-
-See [TESTING.md](./TESTING.md) for the complete testing checklist.
-
-### Quick Test Commands
-```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-## 🚢 Deployment to Vercel
-
-1. Push code to GitHub
-2. Connect GitHub repository to Vercel
-3. In Vercel, open **Project Settings → Environment Variables** and add these exact names:
-   - `VITE_SUPABASE_URL` — Supabase **Project URL**
-   - `VITE_SUPABASE_ANON_KEY` — Supabase **anon public** key (or a Supabase publishable key)
-4. Enable both variables for **Production** and **Preview**. Add them to **Development** too only if using Vercel's local development workflow.
-5. Save the variables and trigger a **new deployment**. Vite embeds `VITE_` variables at build time; changing them does not update an already-built deployment.
-
-For the Vercel-Supabase integration, the Vite config also accepts `SUPABASE_URL` and `SUPABASE_ANON_KEY`, or `NEXT_PUBLIC_SUPABASE_ANON_KEY` for the public key. Explicit mappings are used; other `SUPABASE_*` variables such as database credentials are never exposed to browser code. When multiple supported names are set, `VITE_` names take precedence.
-
-The Vercel build command is `npm run build` and the output directory is `dist` (configured in `vercel.json`). The rewrite to `/index.html` supports client-side routes. Confirm the Vercel project uses the repository root as its Root Directory.
-
-The local `.env` and `.env.example` files supplied with this workspace contain example placeholders only. Copy `.env.example` to `.env` for local work and replace both values with those from your own Supabase project; `.env` is ignored and must never be committed.
-
-If you already applied an earlier version of `database/schema.sql`, run this SQL once in the Supabase SQL Editor to prevent users from updating their own profile role:
-
-```sql
-REVOKE UPDATE ON TABLE public.profiles FROM authenticated;
-GRANT UPDATE (full_name, email) ON TABLE public.profiles TO authenticated;
-```
-
-### ⚠️ Fix for "Permission Denied" Build Error on Vercel
-
-If Vercel shows `Permission denied` on the `vite` binary during build (exit code 126), three fixes are applied in this project:
-
-**package.json** — Build script uses `npx` plus a `postinstall` permission fix:
-```json
-"scripts": {
-  "build": "npx vite build",
-  "postinstall": "chmod +x node_modules/.bin/vite 2>/dev/null || true"
-}
-```
-
-**vercel.json** — Vercel build configuration:
-```json
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
-```
-
-The `postinstall` script runs after `npm install` and fixes execute permissions on the `vite` binary. The `rewrites` rule ensures refreshing on any route (e.g., `/courses/add`) serves `index.html` instead of returning 404, which is required for React Router SPA applications.
-
-## 📱 Screenshots
-
-- **Login Page**: Clean login/signup form with validation
-- **Dashboard**: Stats cards, quick actions, recent courses
-- **Course Listing**: Searchable, filterable course table
-- **Add/Edit Course**: Form-based course management
-- **Profile**: User information and sign out
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## 📄 License
-
-MIT License
-
-## 👨‍🏫 For Students (Learning Guide)
-
-This project demonstrates:
-
-1. **React Context API** for global state management (AuthContext)
-2. **Custom Hooks** (`useAuth`) for reusable authentication logic
-3. **React Router** for client-side routing with protected routes
-4. **Supabase Client** for database operations from frontend
-5. **Row Level Security** for database-level access control
-6. **Controlled Components** for form handling
-7. **Conditional Rendering** for role-based UI
-8. **Responsive CSS** with CSS variables and media queries
-
-Each file includes inline comments explaining its purpose and how it connects to other files.
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to **SQL Editor** in your Supabase dashboard
-3. Copy and paste the contents of `database/schema.sql`
-4. Click **Run** to execute the schema
-
-### Apply role security migration and create the first admin
-
-For an existing portal, **do not rerun `database/schema.sql`**: it contains non-idempotent table/policy creation statements. Run only the migration below. On a brand-new Supabase project, create the base schema once first, then apply this migration.
-
-1. In Supabase Dashboard, open **SQL Editor**.
-2. Copy the contents of `supabase/migrations/20261125173000_secure_profile_roles_and_admin_access.sql` and run it once. It preserves existing data and policies, backfills missing profiles as students, and adds admin/profile protections.
-3. In Supabase Dashboard, open **Authentication → Providers → Email** and turn **Confirm email** off. Save the setting. Supabase controls whether signup returns an authenticated session; the frontend cannot disable this project-level setting itself.
-4. Open `supabase/promote_existing_user_to_admin.sql`, replace `REPLACE_WITH_CONFIRMED_EMAIL` with your confirmed account email, and run it as the authorized project/database administrator in SQL Editor. Do not expose a service-role key to the browser or paste it into application environment variables.
-5. Sign out and sign back in to refresh the profile role. Admin navigation and the `/admin` dashboard will then appear.
-
-The promotion SQL refuses unconfirmed or unknown accounts and should only be used by a trusted database administrator. Students cannot promote themselves or change their role through the application.
-
-### Email confirmation setting
-
-Email confirmation is intentionally disabled for this application. In Supabase Dashboard, open **Authentication → Providers → Email**, turn **Confirm email** off, and save. New signups then return an authenticated session and can enter the portal immediately. This reduces account ownership assurance and may increase fake registrations; retain strong passwords, rate limits, and database RLS.
-
-Changing the setting does not necessarily confirm accounts that were created earlier. Check **Authentication → Users** and have an authorized Supabase administrator update an existing account's confirmation status there before it can sign in. The app does not send verification emails or bypass authentication.
-
-If signup returns **“email rate limit exceeded”** or HTTP 429, Supabase has temporarily throttled signup/email activity; this cannot be fixed by retrying from the frontend. Wait before trying again and avoid repeated submissions. Confirm that **Confirm email** is off in the Supabase project actually used by the deployment, then check **Authentication → Rate Limits**, the configured email provider/SMTP settings, and the project's Auth logs. Do not raise limits just to mask automated or repeated signup traffic.
-
-### 6. Run Development Server
-```bash
-npm run dev
-```
-Open http://localhost:5173
-
-### 7. Build for Production
-```bash
+npm test
 npm run build
 npm run preview
 ```
-└── README.md                   # This file
-```
 
-## 🗄 Database Architecture
-
-### Tables
-
-#### profiles
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | References auth.users.id (Primary Key) |
-| full_name | TEXT | User's full name |
-| email | TEXT | User's email address |
-| role | TEXT | 'admin' or 'student' (default: 'student') |
-| created_at | TIMESTAMPTZ | Record creation timestamp |
-| updated_at | TIMESTAMPTZ | Last update timestamp |
-
-#### courses
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary Key (auto-generated) |
-| course_name | TEXT | Course name (required) |
-| trainer_name | TEXT | Trainer name (required) |
-| duration | TEXT | Course duration (required) |
-| description | TEXT | Course description (optional) |
-| created_at | TIMESTAMPTZ | Record creation timestamp |
-| updated_at | TIMESTAMPTZ | Last update timestamp |
+End-to-end authentication and database tests require a configured PostgreSQL project and server environment; they are not simulated by the build.

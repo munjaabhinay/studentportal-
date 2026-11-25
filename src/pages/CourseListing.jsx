@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../services/supabase'
+import { apiRequest } from '../services/api'
 import { Trash2, Edit3, Plus, Search } from 'lucide-react'
 
 export default function CourseListing() {
@@ -23,14 +23,9 @@ export default function CourseListing() {
       setLoading(true)
       setError('')
 
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setCourses(data || [])
-      setFilteredCourses(data || [])
+      const { courses } = await apiRequest('/courses')
+      setCourses(courses)
+      setFilteredCourses(courses)
     } catch (err) {
       setError(err.message || 'Failed to load courses')
       console.error('Course listing error:', err)
@@ -70,9 +65,7 @@ export default function CourseListing() {
 
     setDeletingId(id)
     try {
-      const { error } = await supabase.from('courses').delete().eq('id', id)
-
-      if (error) throw error
+      await apiRequest(`/courses/${id}`, { method: 'DELETE' })
 
       setCourses((prev) => prev.filter((c) => c.id !== id))
       setFilteredCourses((prev) => prev.filter((c) => c.id !== id))
